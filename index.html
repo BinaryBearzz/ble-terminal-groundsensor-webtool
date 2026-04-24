@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Web BLE NUS Terminal</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --dark: #212529;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f7f9;
+            padding: 20px;
+            color: var(--dark);
+        }
+
+        .container {
+            max-width: 850px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .disconnected {
+            background: #ffebee;
+            color: var(--danger);
+        }
+
+        .connected {
+            background: #e8f5e9;
+            color: var(--success);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            color: white;
+        }
+
+        #connectBtn {
+            background: var(--primary);
+            flex: 2;
+        }
+
+        #disconnectBtn {
+            background: var(--danger);
+            flex: 1;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .terminal {
+            background: #1e1e1e;
+            color: #00e676;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            font-size: 14px;
+            border: 2px solid #333;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #eee;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .input-group label {
+            min-width: 120px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #666;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+        }
+
+        .send-btn {
+            background: var(--success);
+            min-width: 100px;
+        }
+
+        .raw-btn {
+            background: var(--warning);
+            color: #000;
+            min-width: 100px;
+        }
+
+        .timestamp {
+            color: #888;
+            font-size: 11px;
+            margin-right: 8px;
+        }
+
+        h2 {
+            font-size: 1rem;
+            color: #555;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            /* เปลี่ยนรูปเมาส์ให้เป็นเครื่องหมายคำถาม */
+        }
+
+        /* ข้อความ Tooltip (ซ่อนไว้ก่อน) */
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 500px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            /* แสดงด้านบนของ Label */
+            left: 50%;
+            margin-left: -80px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        /* แสดง Tooltip เมื่อ Hover */
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* เพิ่มสามเหลี่ยมชี้ลงข้างล่าง */
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+
+        /* Documentation Section Styles */
+        .docs-container {
+            max-width: 1280px;
+            margin: 30px auto;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        .cmd-table-wrapper {
+            overflow-x: auto;
+            max-height: 500px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+
+        .cmd-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .cmd-table th {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 12px;
+            border-bottom: 2px solid #ddd;
+            text-align: left;
+        }
+
+        .cmd-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+        }
+
+        /* Row Coloring based on Image Categories */
+        .row-basic {
+            background-color: #f8f0ff;
+        }
+
+        /* สีม่วงอ่อน */
+        .row-message {
+            background-color: #fffde7;
+        }
+
+        /* สีเหลืองอ่อน */
+        .row-chef {
+            background-color: #f1f8e9;
+        }
+
+        /* สีเขียวอ่อน */
+        .row-update {
+            background-color: #fff3e0;
+        }
+
+        /* สีส้มอ่อน */
+
+        code {
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            color: #c62828;
+            cursor: pointer;
+        }
+
+        code:hover {
+            background: #bdbdbd;
+        }
+
+        .remark-text {
+            font-size: 11px;
+            color: #666;
+        }
+
+        :root {
+            --primary: #1a73e8;
+            --secondary: #34a853;
+            --purple: #8e44ad;
+            --orange: #e67e22;
+            --teal: #008080;
+            --indigo: #3f51b5;
+            --dark: #202124;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f8f9fa;
+            padding: 20px;
+            color: var(--dark);
+            line-height: 1.4;
+        }
+
+        .container {
+            max-width:1280px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card {
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            color: var(--primary);
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        h2::before {
+            content: '◈';
+            margin-right: 8px;
+            font-size: 0.8rem;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin: 10px 0 5px;
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-family: 'Consolas', monospace;
+            font-size: 1rem;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            outline: none;
+            background: #fffdfa;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            cursor: pointer;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: bold;
+            transition: 0.2s;
+            font-size: 0.9rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-blue {
+            background: var(--primary);
+        }
+
+        .btn-green {
+            background: var(--secondary);
+        }
+
+        .btn-purple {
+            background: var(--purple);
+        }
+
+        .btn-orange {
+            background: var(--orange);
+        }
+
+        .btn-teal {
+            background: var(--teal);
+        }
+
+        .btn-indigo {
+            background: var(--indigo);
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #2c3e50;
+            color: #00e676;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border-left: 4px solid #00e676;
+        }
+
+        strong {
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>BLE UART Terminal Ground Sensor</h1>
+
+        <div id="statusBar" class="status-bar disconnected">
+            Status: Disconnected
+        </div>
+
+        <div class="btn-group">
+            <button id="connectBtn" onclick="onConnectClick()">Connect Device</button>
+            <button id="disconnectBtn" onclick="onDisconnectClick()" disabled>Disconnect</button>
+        </div>
+
+        <div id="terminal" class="terminal"></div>
+
+        <div class="control-panel">
+            <div class="input-group">
+                <div class="input-group">
+                    <div class="tooltip">
+                        <label>FOR SOS COMMAND (AIS USE CASE)</label>
+                        <span
+                            class="tooltiptext">SOS:${alert_action},${sos_level},${battery},${GPS_LAT},${GPS_LNG},${TELEPHON
+                            XOR_CIPOR},${TIME_UNIXT}#
+                            <br>Example -> SOS:101,1,95,13.7563,100.5018,49df03df31,1771225912#
+                        </span>
+                    </div>
+                </div>
+                <input type="text" id="userInput" placeholder="ส่งข้อความปกติ..."
+                    onkeypress="if(event.keyCode===13) sendData('normal')">
+                <button id="sendBtn" class="send-btn" onclick="sendData('normal')" disabled>Send</button>
+            </div>
+
+            <div class="input-group">
+                <label>RAW COMMAND</label>
+                <input type="text" id="rawInput" placeholder="พิมพ์ AT+CMD (จะเติม RAW: และ # ให้)"
+                    onkeypress="if(event.keyCode===13) sendData('raw')">
+                <button id="rawSendBtn" class="raw-btn" onclick="sendData('raw')" disabled>Send RAW</button>
+            </div>
+
+            <div class="docs-container">
+                <h2 style="text-align: left; color: #333;">📚RAW Command Reference</h2>
+                <input type="text" id="cmdSearch" class="search-box" placeholder="ค้นหาชื่อคำสั่ง หรือ Template..."
+                    onkeyup="searchTable()">
+
+                <div class="cmd-table-wrapper">
+                    <table class="cmd-table" id="docsTable">
+                        <thead>
+                            <tr>
+                                <th>Command Name</th>
+                                <th>Template & Example (Click code to use)</th>
+                                <th>Remark</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="row-basic">
+                                <td><b>Ping Device</b></td>
+                                <td>Template: <code>AT</code><br>Ex: <code onclick="copyToRaw('AT')">AT</code></td>
+                                <td>Check if module is ready. Res: OK</td>
+                            </tr>
+                            <tr class="row-basic">
+                                <td><b>LoRa Config</b></td>
+                                <td>Template: <code>AT+INFO=?,&lt;KEY&gt;</code><br>Ex: <code
+                                        onclick="copyToRaw('AT+INFO=?,...')">AT+INFO=?,...</code></td>
+                                <td>Get frequency, SF, BW, etc. KEY(Secret please contact ais dev)</td>
+                            </tr>
+
+                            <tr class="row-message">
+                                <td><b>POSTMAN Send</b></td>
+                                <td>Template:
+                                    <code>AT+SEND=&lt;Ch(1-8; 0=random)&gt;,&lt;ProjID&gt;,&lt;data...&gt;</code><br>Ex:
+                                    <code onclick="copyToRaw('AT+SEND=0,69,0,1,2,3,4,5')">AT+SEND=0,69,0,1,2...</code>
+                                </td>
+                                <td>Max 21 bytes data</td>
+                            </tr>
+                            <tr class="row-message">
+                                <td><b>POSTMAN Interval</b></td>
+                                <td>Template:
+                                    <code>AT+POST=&lt;Ch(1-8; 0=random)&gt;,&lt;Rep&gt;,&lt;Int&gt;,&lt;data...&gt;</code><br>Ex:
+                                    <code
+                                        onclick="copyToRaw('AT+POST=0,5,2000,69,0,1,2,3')">AT+POST=0,5,2000,69...</code>
+                                </td>
+                                <td>Send recurring messages</td>
+                            </tr>
+
+                            <tr class="row-chef">
+                                <td><b>CHEF V1-V4 (SATEMODE)</b></td>
+                                <td>Template:<code>AT+SATE=&lt;Ch(1-8; 0=random)&gt;,&lt;Version&gt;,&lt;data...&gt;</code><br>
+                                    Ex V1: <code
+                                        onclick="copyToRaw('AT+SATE=0,V1,0,1,2,3,4,5')">AT+SATE=0,V1...</code><br>
+                                    Ex V2: <code
+                                        onclick="copyToRaw('AT+SATE=0,V2,0,1,2,3,4,5')">AT+SATE=0,V2...</code><br>
+                                    Ex V3: <code
+                                        onclick="copyToRaw('AT+SATE=0,V3,0,1,2,3,4,5')">AT+SATE=0,V3...</code><br>
+                                    Ex V4: <code onclick="copyToRaw('AT+SATE=0,V4,0,1,2,3,4,5')">AT+SATE=0,V4...</code>
+                                </td>
+                                <td>Max data V1: 22b, V2: 26b, V3/V4: 16b</td>
+                            </tr>
+                            <tr class="row-chef">
+                                <td><b>CHEF V1-V4 Interval (SATEMODE)</b></td>
+                                <td>Template:<code>AT+SATE=&lt;Ch(1-8; 0=random)&gt;,&lt;Rep&gt;,&lt;Int&gt;,&lt;Version&gt;,&lt;data...&gt;</code><br>
+                                    Ex V1: <code
+                                        onclick="copyToRaw('AT+SATE=0,5,2000,V1,0,1,2,3,4,5')">AT+SATE=0,5,2000,V1,...</code><br>
+                                    Ex V2: <code
+                                        onclick="copyToRaw('AT+SATE=0,5,2000,V2,0,1,2,3,4,5')">AT+SATE=0,5,2000,V2,...</code><br>
+                                    Ex V3: <code
+                                        onclick="copyToRaw('AT+SATE=0,5,2000,V3,0,1,2,3,4,5')">AT+SATE=0,5,2000,V3,...</code><br>
+                                    Ex V4: <code
+                                        onclick="copyToRaw('AT+SATE=0,5,2000,V4,0,1,2,3,4,5')">AT+SATE=0,5,2000,V4,...</code>
+                                </td>
+                                <td>Max data V1: 22b, V2: 26b, V3/V4: 16b</td>
+                            </tr>
+                            <tr class="row-update1">
+                                <td><b>Set Unix Time (2026) Automatic</b></td>
+                                <td>
+                                    Template: <code>AT+SYNCTIME=&lt;10_digit&gt;</code><br>
+                                    Ex: <code onclick="copyToRaw('AT+SYNCTIME=CURRENT_UNIX')"
+                                        style="cursor:pointer; color:rgb(255, 98, 0); text-decoration:underline;">
+            AT+SYNCTIME=[Click to get Current Time]
+        </code>
+                                </td>
+                                <td>Update device system time once at board start</td>
+                            </tr>
+                            <tr class="row-update">
+                                <td><b>Set Device ID(ShortInt 0-65535)</b></td>
+                                <td>Template: <code>AT+SETDID=&lt;ShortInt&gt;</code><br>Ex: <code
+                                        onclick="copyToRaw('AT+SETDID=255')">AT+SETDID=255</code></td>
+                                <td>Update Device ID(check ThingId register on Satteliter db)</td>
+                            </tr>
+                            <tr class="row-post">
+                                <td><b>Preset cmd<br>POSTMAN Send</b></td>
+                                <td>Ex: Send POSTMAN CH: 7, ProjectId: 69, data: "hello kmutnb on Y2026" <br> (21 byte) data after 7,69,...<br>
+                                    <code onclick="copyToRaw('AT+SEND=7,69,104,101,108,108,111,32,107,109,117,116,110,98,32,111,110,32,89,50,48,50,54')">AT+SEND=7,69,104,101,108,108,111,32,107,109,117,116,110,98,32,111,110,32,89,50,48,50,54</code>
+                                </td>
+                                <td>Max 21 bytes data</td>
+                            </tr>
+                            <tr class="row-chef">
+                                <td><b>Preset cmd<br>CHEF V1-V4 (SATEMODE)</b></td>
+                                <td><br>
+                                    Ex V1 CH:5, data: hello kmutnb (12 byte) data after V..<br>: <code
+                                        onclick="copyToRaw('AT+SATE=5,V1,104,101,108,108,111,32,107,109,117,116,110,98')">AT+SATE=5,V1,104,101,108,108,111,32,107,109,117,116,110,98</code><br>
+                                    Ex V2 CH:3, data: 13.8221,100.51267 (10 byte)<br>: <code
+                                        onclick="copyToRaw('AT+SATE=3,V2,8,61,21,200,0,59,233,4,44,0')">AT+SATE=3,V2,8,61,21,200,0,59,233,4,44,0</code><br>
+                                    Ex V3 CH:1, data: 13.8221,100.51267 & unix(23/04/2026-08:00:00+0700 -> 1776906000)
+                                    (10+4 byte)<br>: <code
+                                        onclick="copyToRaw('AT+SATE=1,V3,8,61,21,200,0,59,233,4,44,0,105,233,111,16')">AT+SATE=1,V3,8,61,21,200,0,59,233,4,44,0,105,233,111,16</code><br>
+                                    Ex V4 CH:8, data: phone number 0888888888 encoded xor cipher (5 byte)<br>: <code
+                                        onclick="copyToRaw('AT+SATE=8,V4,73,193,219,215,219')">AT+SATE=8,V4,73,193,219,215,219</code>
+                                </td>
+                                <td>V1: 22b, V2: 26b, V3/V4: 16b</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <h1 style="text-align:center; color:var(--dark); margin-bottom: 30px;">IoT Ground Sensor Data Converter
+            </h1>
+
+            <div class="card">
+                <h2>1. Timestamp (4 Bytes)</h2>
+                <input type="text" id="tsInput" value="1771225912">
+                <div class="btn-group">
+                    <button class="btn-blue" onclick="packTS()">Pack to Bytes</button>
+                    <button class="btn-orange" onclick="unpackTS()">Unpack to Unix</button>
+                </div>
+                <div id="resTS" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="card">
+                <h2>2. GPS (10 Bytes)</h2>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:5px;">
+                    <input type="text" id="latInput" value="13.7563">
+                    <input type="text" id="lngInput" value="100.5018">
+                </div>
+                <input type="text" id="gpsByteInput" placeholder="Byte Array (10 bytes)">
+                <div class="btn-group">
+                    <button class="btn-blue" onclick="packGPS()">Pack GPS</button>
+                    <button class="btn-orange" onclick="unpackGPS()">Unpack GPS</button>
+                </div>
+                <div id="resGPS" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="card">
+                <h2>3. Float (4 Bytes - IEEE 754)</h2>
+                <input type="text" id="floatInput" value="123.45">
+                <div class="btn-group">
+                    <button class="btn-purple" onclick="packFloat()">Float to Bytes</button>
+                    <button class="btn-orange" onclick="unpackFloat()">Bytes to Float</button>
+                </div>
+                <div id="resFloat" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="card">
+                <h2>4. Text String (ASCII & Hex)</h2>
+                <input type="text" id="textInput" value="Hello IoT">
+                <div class="btn-group">
+                    <button class="btn-teal" onclick="packText()">Text to Hex/Bytes</button>
+                    <button class="btn-orange" onclick="unpackText()">Hex/Bytes to Text</button>
+                </div>
+                <div id="resText" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="card" style="border-left: 5px solid var(--indigo);">
+                <h2>5. 16-bit Integer (2 Bytes to Decimal)</h2>
+                <label>เลขฐานสิบ (0-65535) หรือ Byte Array (เช่น 20, 35):</label>
+                <input type="text" id="int16Input" value="20, 35">
+                <div class="btn-group">
+                    <button class="btn-indigo" onclick="packInt16()">Decimal to Bytes</button>
+                    <button class="btn-orange" onclick="unpackInt16()">Bytes to Decimal</button>
+                </div>
+                <div id="resInt16" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="card" style="border-left: 5px solid var(--secondary); background: #f9fffb;">
+                <h2>6. Phone XOR Cipher (C++ Match)</h2>
+                <input type="text" id="phoneInput" value="0888888888">
+                <label>XOR Key:</label>
+                <div class="input-group" style="position: relative; display: flex; align-items: center;">
+                    <input type="password" id="xorKey" value="" style="flex: 1; padding-right: 40px;">
+                    <span id="togglePassword" onclick="togglePass()"
+                        style="position: absolute; right: 10px; cursor: pointer; user-select: none;">
+                        👁️
+                    </span>
+                </div>
+
+                <div class="btn-group" style="margin-top: 10px;">
+                    <button class="btn-green" onclick="processPhone('enc')">Encrypt (To Hex)</button>
+                    <button class="btn-orange" onclick="processPhone('dec')">Decrypt (To Phone)</button>
+                </div>
+                <div id="resPhone" class="result" style="display:none;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+        const RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+
+        function updateUnixTime() {
+            const unixTime = Math.floor(Date.now() / 1000); // หาร 1000 เพื่อเอาหน่วยวินาที (10 หลัก)
+            const element = document.getElementById('unix-time-display');
+            element.innerText = 'AT+SETTIME=' + unixTime;
+            element.setAttribute('data-time', unixTime); // เก็บค่าไว้สำหรับ copy
+        }
+
+        const show = (id, txt) => {
+            const el = document.getElementById(id);
+            el.style.display = "block";
+            el.innerHTML = txt;
+        };
+
+        // อัปเดตทันทีที่โหลดหน้า
+        updateUnixTime();
+
+        // (Optional) อัปเดตทุกๆ 1 วินาทีเพื่อให้เวลาเดินตลอด
+        setInterval(updateUnixTime, 1000);
+
+
+
+        var bleDevice = null;
+        var rxCharacteristic = null;
+
+        function log(msg, type = 'info') {
+            const terminal = document.getElementById('terminal');
+            const time = new Date().toLocaleTimeString();
+            let color = '#ffffff';
+            let prefix = '-- ';
+
+            if (type === 'in') { color = '#00e676'; prefix = 'RX ← '; }
+            else if (type === 'out') { color = '#ffeb3b'; prefix = 'TX → '; }
+            else if (type === 'raw') { color = '#ffc107'; prefix = 'RAW → '; }
+
+            terminal.innerHTML += `<div><span class="timestamp">[${time}]</span><span style="color:${color}">${prefix}${msg}</span></div>`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        async function onConnectClick() {
+            try {
+                log("กำลังค้นหาอุปกรณ์...");
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [SERVICE_UUID] }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                log(`กำลังเชื่อมต่อกับ ${bleDevice.name}...`);
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+
+                rxCharacteristic = await service.getCharacteristic(RX_UUID);
+                const txChar = await service.getCharacteristic(TX_UUID);
+
+                await txChar.startNotifications();
+                txChar.addEventListener('characteristicvaluechanged', (e) => {
+                    let decoder = new TextDecoder('utf-8');
+                    log(decoder.decode(e.target.value), 'in');
+                });
+
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                updateUI(true);
+                log("เชื่อมต่อสำเร็จ!", 'info');
+            } catch (error) {
+                log("Error: " + error, 'error');
+            }
+        }
+
+        async function sendData(mode) {
+            if (!rxCharacteristic) return;
+
+            let inputEl = (mode === 'raw') ? document.getElementById('rawInput') : document.getElementById('userInput');
+            let data = inputEl.value;
+            if (!data) return;
+
+            // จัดการ Format ถ้าเป็นโหมด RAW
+            let finalData = (mode === 'raw') ? `RAW:${data}#` : data;
+
+            try {
+                let encoder = new TextEncoder();
+                await rxCharacteristic.writeValue(encoder.encode(finalData));
+                log(finalData, mode === 'raw' ? 'raw' : 'out');
+                inputEl.value = "";
+            } catch (error) {
+                log("ส่งข้อมูลไม่สำเร็จ: " + error);
+            }
+        }
+
+        function onDisconnectClick() {
+            if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+        }
+
+        function onDisconnected() {
+            updateUI(false);
+            log("ตัดการเชื่อมต่อแล้ว", 'info');
+        }
+
+        function updateUI(connected) {
+            document.getElementById('connectBtn').disabled = connected;
+            document.getElementById('disconnectBtn').disabled = !connected;
+            document.getElementById('sendBtn').disabled = !connected;
+            document.getElementById('rawSendBtn').disabled = !connected;
+            const status = document.getElementById('statusBar');
+            status.innerText = connected ? "Status: Connected" : "Status: Disconnected";
+            status.className = connected ? "status-bar connected" : "status-bar disconnected";
+        }
+
+        // ฟังก์ชันเมื่อคลิกที่ตัวอย่างคำสั่ง จะนำไปใส่ในช่อง RAW COMMAND ให้อัตโนมัติ
+        function copyToRaw(cmd) {
+            const rawInput = document.getElementById('rawInput');
+            if (rawInput) {
+                let finalCmd = cmd;
+
+                // ถ้าในคำสั่งมีคำว่า CURRENT_UNIX ให้ดึงเวลาปัจจุบันมาแทนที่
+                if (cmd.includes('CURRENT_UNIX')) {
+                    const unixTime = Math.floor(Date.now() / 1000);
+                    finalCmd = cmd.replace('CURRENT_UNIX', unixTime);
+                }
+
+                rawInput.value = finalCmd;
+                rawInput.focus();
+
+                // ลูกเล่น Highlight เดิมของคุณ
+                rawInput.style.transition = "0.3s";
+                rawInput.style.backgroundColor = "#fff9c4";
+                setTimeout(() => {
+                    rawInput.style.backgroundColor = "";
+                }, 500);
+            }
+        }
+
+        // ฟังก์ชันค้นหาในตาราง
+        function searchTable() {
+            let input = document.getElementById("cmdSearch");
+            let filter = input.value.toUpperCase();
+            let table = document.getElementById("docsTable");
+            let tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let textContent = tr[i].textContent || tr[i].innerText;
+                if (textContent.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+
+
+        //converter functions
+
+
+        // --- 1. TIMESTAMP ---
+        function packTS() {
+            const ts = parseInt(document.getElementById('tsInput').value);
+            const b = [(ts >>> 24) & 0xFF, (ts >>> 16) & 0xFF, (ts >>> 8) & 0xFF, ts & 0xFF];
+            show('resTS', `<strong>Bytes:</strong> [${b.join(',')}] -> ${b.length} bytes`);
+        }
+        function unpackTS() {
+            const b = document.getElementById('tsInput').value.split(',').map(Number);
+            const ts = ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0;
+            show('resTS', `<strong>Unix:</strong> ${ts}\n<strong>Date:</strong> ${new Date(ts * 1000).toLocaleString()}`);
+        }
+
+        // --- 2. GPS ---
+        function packGPS() {
+            const lat = parseFloat(document.getElementById('latInput').value);
+            const lng = parseFloat(document.getElementById('lngInput').value);
+            const toB = (v) => {
+                const f = Math.abs(Math.round(v * 10000000));
+                return [(f >>> 24) & 0xFF, (f >>> 16) & 0xFF, (f >>> 8) & 0xFF, f & 0xFF, v < 0 ? 0xFF : 0x00];
+            };
+            const res = [...toB(lat), ...toB(lng)];
+            show('resGPS', `<strong>Bytes:</strong> [${res.join(',')}] -> ${res.length} bytes`);
+            document.getElementById('gpsByteInput').value = res.join(',');
+        }
+        function unpackGPS() {
+            const b = document.getElementById('gpsByteInput').value.split(',').map(Number);
+            const parse = (i) => {
+                let v = ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+                if (b[i + 4] === 0xFF) v *= -1;
+                return v / 10000000.0;
+            };
+            show('resGPS', `<strong>Lat:</strong> ${parse(0)}\n<strong>Lng:</strong> ${parse(5)}`);
+        }
+
+        // --- 3. FLOAT ---
+        function packFloat() {
+            const f = parseFloat(document.getElementById('floatInput').value);
+            const buf = new ArrayBuffer(4);
+            new DataView(buf).setFloat32(0, f, false);
+            const b = Array.from(new Uint8Array(buf));
+            show('resFloat', `<strong>Bytes:</strong> [${b.join(',')}] -> ${b.length} bytes`);
+        }
+        function unpackFloat() {
+            const b = document.getElementById('floatInput').value.split(',').map(Number);
+            const buf = new Uint8Array(b).buffer;
+            show('resFloat', `<strong>Float:</strong> ${new DataView(buf).getFloat32(0, false)}`);
+        }
+
+        // --- 4. TEXT ---
+        function packText() {
+            const str = document.getElementById('textInput').value;
+            let b = [], hex = "";
+            for (let i = 0; i < str.length; i++) {
+                const c = str.charCodeAt(i);
+                b.push(c); hex += c.toString(16).padStart(2, '0');
+            }
+            show('resText', `<strong>Hex:</strong> ${hex.toUpperCase()}\n<strong>Bytes:</strong> [${b.join(',')}] ->  ${b.length} bytes`);
+        }
+        function unpackText() {
+            const input = document.getElementById('textInput').value.trim();
+            let b = input.includes(',') ? input.split(',').map(Number) : [];
+            if (!b.length) for (let i = 0; i < input.length; i += 2) b.push(parseInt(input.substr(i, 2), 16));
+            show('resText', `<strong>Text:</strong> "${b.map(c => String.fromCharCode(c)).join('')}"`);
+        }
+
+        // --- 5. 16-BIT INTEGER (NEW FUNCTION) ---
+        function packInt16() {
+            const val = parseInt(document.getElementById('int16Input').value);
+            if (isNaN(val)) return alert("กรุณาใส่ตัวเลข");
+            const b = [(val >>> 8) & 0xFF, val & 0xFF]; // Big Endian
+            show('resInt16', `<strong>Bytes (Big Endian):</strong> [${b.join(',')}] ->  ${b.length} bytes\n`);
+        }
+        function unpackInt16() {
+            const b = document.getElementById('int16Input').value.split(',').map(Number);
+            if (b.length < 2) return alert("ต้องการอย่างน้อย 2 bytes (เช่น 20, 35)");
+            const be = (b[0] << 8) | b[1];
+            const le = (b[1] << 8) | b[0];
+            show('resInt16', `<strong>Big Endian Dec:</strong> ${be}\n`);
+        }
+
+        // --- 6. PHONE XOR ---
+        function processPhone(mode) {
+            let input = document.getElementById('phoneInput').value.trim();
+            const key = document.getElementById('xorKey').value;
+            let resHex = "", resBytes = [], finalPhone = "";
+            let inputBytes = [];
+            if (input.includes(',')) {
+                inputBytes = input.split(',').map(Number);
+            } else {
+                input = input.replace(/\s/g, '');
+                for (let i = 0; i < input.length / 2; i++) inputBytes.push(parseInt(input.substr(i * 2, 2), 16));
+            }
+            inputBytes.forEach((dataByte, i) => {
+                let result = dataByte ^ key.charCodeAt(i % key.length);
+                resBytes.push(result);
+                if (mode === 'dec') finalPhone += result.toString(16).padStart(2, '0');
+                else resHex += result.toString(16).padStart(2, '0');
+            });
+            if (mode === 'enc') show('resPhone', `<strong>Hex:</strong> ${resHex.toUpperCase()}\n<strong>Bytes:</strong> [${resBytes.join(',')}] -> ${resBytes.length} bytes`);
+            else show('resPhone', `<strong>Phone:</strong> ${finalPhone}\n<strong>Bytes:</strong> [${resBytes.join(',')}] -> ${resBytes.length} bytes`);
+        }
+        function togglePass() {
+            const xorKey = document.getElementById('xorKey');
+            const toggleBtn = document.getElementById('togglePassword');
+
+            if (xorKey.type === 'password') {
+                xorKey.type = 'text';
+                toggleBtn.innerText = '🙈'; // เปลี่ยนไอคอนตอนเปิดดู
+            } else {
+                xorKey.type = 'password';
+                toggleBtn.innerText = '👁️'; // เปลี่ยนไอคอนตอนปิด
+            }
+        }
+    </script>
+
+</body>
+
+</html>
