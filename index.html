@@ -441,7 +441,7 @@
             <div class="input-group">
                 <div class="input-group">
                     <div class="tooltip">
-                        <label>FOR SOS COMMAND (AIS USE CASE)</label>
+                        <label>FOR SOS COMMAND</label>
                         <span
                             class="tooltiptext">SOS:${alert_action},${sos_level},${battery},${GPS_LAT},${GPS_LNG},${TELEPHON
                             XOR_CIPOR},${TIME_UNIXT}#
@@ -462,7 +462,7 @@
             </div>
 
             <div class="docs-container">
-                <h2 style="text-align: left; color: #333;">📚RAW Command Reference</h2>
+                <h2 style="text-align: left; color: #333;">📚 Command Reference</h2>
                 <input type="text" id="cmdSearch" class="search-box" placeholder="ค้นหาชื่อคำสั่ง หรือ Template..."
                     onkeyup="searchTable()">
 
@@ -482,10 +482,23 @@
                                 <td>Check if module is ready. Res: OK</td>
                             </tr>
                             <tr class="row-basic">
+                                <td><b>Get Help</b></td>
+                                <td>Template: <code>AT+HELP</code><br>Ex: <code
+                                        onclick="copyToRaw('AT+HELP')">AT+HELP</code></td>
+                                <td>Show available commands</td>
+                            </tr>
+                            <tr class="row-basic">
                                 <td><b>LoRa Config</b></td>
                                 <td>Template: <code>AT+INFO=?,&lt;KEY&gt;</code><br>Ex: <code
-                                        onclick="copyToRaw('AT+INFO=?,...')">AT+INFO=?,...</code></td>
-                                <td>Get frequency, SF, BW, etc. KEY(Secret please contact ais dev)</td>
+                                        onclick="copyToRaw('AT+INFO=?,admin_ais')">AT+INFO=?,admin_ais</code></td>
+                                <td>Get frequency, SF, BW, etc.</td>
+                            </tr>
+                            <tr class="row-basic">
+                                <td><b>Secure Key</b></td>
+                                <td>Template: <code>AT+SECUREKEY=?,&lt;KEY&gt;</code><br>Ex: <code
+                                        onclick="copyToRaw('AT+SECUREKEY=?,admin_ais')">AT+SECUREKEY=?,admin_ais</code>
+                                </td>
+                                <td>Query current security key</td>
                             </tr>
 
                             <tr class="row-message">
@@ -517,7 +530,7 @@
                                         onclick="copyToRaw('AT+SATE=0,V3,0,1,2,3,4,5')">AT+SATE=0,V3...</code><br>
                                     Ex V4: <code onclick="copyToRaw('AT+SATE=0,V4,0,1,2,3,4,5')">AT+SATE=0,V4...</code>
                                 </td>
-                                <td>Max data V1: 22b, V2: 26b, V3/V4: 16b</td>
+                                <td>V1: 22b, V2: 26b, V3/V4: 16b</td>
                             </tr>
                             <tr class="row-chef">
                                 <td><b>CHEF V1-V4 Interval (SATEMODE)</b></td>
@@ -531,7 +544,19 @@
                                     Ex V4: <code
                                         onclick="copyToRaw('AT+SATE=0,5,2000,V4,0,1,2,3,4,5')">AT+SATE=0,5,2000,V4,...</code>
                                 </td>
-                                <td>Max data V1: 22b, V2: 26b, V3/V4: 16b</td>
+                                <td>V1: 22b, V2: 26b, V3/V4: 16b</td>
+                            </tr>
+
+                            <tr class="row-update">
+                                <td><b>Set Unix Time (2026) Temporal</b></td>
+                                <td>
+                                    Template: <code>AT+SETTIME=&lt;10_digit&gt;</code><br>
+                                    Ex: <code onclick="copyToRaw('AT+SETTIME=CURRENT_UNIX')"
+                                        style="cursor:pointer; color:rgb(255, 119, 0); text-decoration:underline;">
+            AT+SETTIME=[Click to get Current Time]
+        </code>
+                                </td>
+                                <td>Update device system time</td>
                             </tr>
                             <tr class="row-update1">
                                 <td><b>Set Unix Time (2026) Automatic</b></td>
@@ -542,17 +567,17 @@
             AT+SYNCTIME=[Click to get Current Time]
         </code>
                                 </td>
-                                <td>Update device system time once at board start</td>
+                                <td>Update device system time</td>
                             </tr>
                             <tr class="row-update">
-                                <td><b>Set Device ID(ShortInt 0-65535)</b></td>
+                                <td><b>Set Device ID(ThingId for CHEF(SATE))</b></td>
                                 <td>Template: <code>AT+SETDID=&lt;ShortInt&gt;</code><br>Ex: <code
-                                        onclick="copyToRaw('AT+SETDID=255')">AT+SETDID=255</code></td>
-                                <td>Update Device ID(check ThingId register on Satteliter db)</td>
+                                        onclick="copyToRaw('AT+SETDID=5515')">AT+SETDID=5515</code></td>
+                                <td>Update Device ID</td>
                             </tr>
                             <tr class="row-post">
-                                <td><b>Preset cmd<br>POSTMAN Send</b></td>
-                                <td>Ex: Send POSTMAN CH: 7, ProjectId: 69, data: "hello kmutnb on Y2026" <br> (21 byte) data after 7,69,...<br>
+                                <td><b>POSTMAN Send</b></td>
+                                <td>Ex: Send POSTMAN CH: 7, ProjectId: 69, data: hello kmutnb on Y2026 <br> (21 byte) data after 7,69,...<br>
                                     <code onclick="copyToRaw('AT+SEND=7,69,104,101,108,108,111,32,107,109,117,116,110,98,32,111,110,32,89,50,48,50,54')">AT+SEND=7,69,104,101,108,108,111,32,107,109,117,116,110,98,32,111,110,32,89,50,48,50,54</code>
                                 </td>
                                 <td>Max 21 bytes data</td>
@@ -637,12 +662,23 @@
                 <div id="resInt16" class="result" style="display:none;"></div>
             </div>
 
+            <div class="card" style="border-left: 5px solid var(--indigo);">
+                <h2>6. 32-bit Integer (4 Bytes to Decimal)</h2>
+                <label>เลขฐานสิบ (0-4294967295) หรือ Byte Array (เช่น 0, 0, 4, 210):</label>
+                <input type="text" id="int32Input" value="0, 0, 4, 210">
+                <div class="btn-group">
+                    <button class="btn-indigo" onclick="packInt32()">Decimal to Bytes</button>
+                    <button class="btn-orange" onclick="unpackInt32()">Bytes to Decimal</button>
+                </div>
+                <div id="resInt32" class="result" style="display:none;"></div>
+            </div>
+
             <div class="card" style="border-left: 5px solid var(--secondary); background: #f9fffb;">
-                <h2>6. Phone XOR Cipher (C++ Match)</h2>
+                <h2>7. Phone XOR Cipher (C++ Match)</h2>
                 <input type="text" id="phoneInput" value="0888888888">
                 <label>XOR Key:</label>
                 <div class="input-group" style="position: relative; display: flex; align-items: center;">
-                    <input type="password" id="xorKey" value="" style="flex: 1; padding-right: 40px;">
+                    <input type="password" id="xorKey" value="AIS_SOS_SAT_01" style="flex: 1; padding-right: 40px;">
                     <span id="togglePassword" onclick="togglePass()"
                         style="position: absolute; right: 10px; cursor: pointer; user-select: none;">
                         👁️
@@ -895,7 +931,21 @@
             show('resInt16', `<strong>Big Endian Dec:</strong> ${be}\n`);
         }
 
-        // --- 6. PHONE XOR ---
+        // --- 6. 32-BIT INTEGER (NEW FUNCTION) ---
+        function packInt32() {
+            const val = parseInt(document.getElementById('int32Input').value);
+            if (isNaN(val)) return alert("กรุณาใส่ตัวเลข");
+            const b = [(val >>> 24) & 0xFF, (val >>> 16) & 0xFF, (val >>> 8) & 0xFF, val & 0xFF]; // Big Endian
+            show('resInt32', `<strong>Bytes (Big Endian):</strong> [${b.join(',')}] ->  ${b.length} bytes\n`);
+        }
+        function unpackInt32() {
+            const b = document.getElementById('int32Input').value.split(',').map(Number);
+            if (b.length < 4) return alert("ต้องการอย่างน้อย 4 bytes (เช่น 0, 0, 4, 210)");
+            const be = ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0;
+            show('resInt32', `<strong>Big Endian Dec:</strong> ${be}\n`);
+        }
+
+        // --- 7. PHONE XOR ---
         function processPhone(mode) {
             let input = document.getElementById('phoneInput').value.trim();
             const key = document.getElementById('xorKey').value;
