@@ -425,20 +425,6 @@ AT+SYNCTIME=1783061906
           <td><code>OK</code></td>
           <td>basic connectivity test</td>
         </tr>
-        <!-- <tr>
-          <td><code>AT+INFO</code></td>
-          <td><code>AT+INFO=?,&lt;secureKey&gt;</code><br><code>AT+INFO=FREQ?,&lt;secureKey&gt;</code></td>
-          <td>อ่าน config และรายการ RF frequency</td>
-          <td>multi-line เช่น <code>OK,INFO:ALL</code> ... ปิดท้าย <code>INFO,FINISHED</code></td>
-          <td>key ไม่ตรงตอบ <code>ERROR,KEY</code></td>
-        </tr> -->
-        <!-- <tr>
-          <td><code>AT+CONF</code></td>
-          <td><code>AT+CONF=?,&lt;secureKey&gt;</code><br><code>AT+CONF=PROJ,&lt;projectId&gt;,&lt;secureKey&gt;</code></td>
-          <td>อ่านค่า Thing ID / Project ID ปัจจุบัน; branch ตั้ง project มีโค้ดค้างไว้</td>
-          <td><code>OK,T:&lt;thing&gt;,P:&lt;project&gt;</code> หรือ <code>OK,PROJ:&lt;project&gt;</code></td>
-          <td>ผิด key ตอบ <code>ERROR:KEY</code>; invalid command ตอบ <code>ERROR:CMD</code></td>
-        </tr> -->
         <tr>
           <td><code>AT+SEND</code></td>
           <td><code>AT+SEND=&lt;ch&gt;,&lt;projectId&gt;,&lt;b1&gt;,...,&lt;bn&gt;</code></td>
@@ -469,41 +455,6 @@ AT+SYNCTIME=1783061906
           <td><code>OK</code> แล้ว restart</td>
           <td>ไม่มี final response หลัง reboot</td>
         </tr>
-        <!-- <tr>
-          <td><code>AT+HELP</code></td>
-          <td><code>AT+HELP</code></td>
-          <td>แสดงรายการ command ที่ register</td>
-          <td>multi-line: <code>Available commands:</code> + command แต่ละบรรทัด + <code>FINISHED</code></td>
-          <td>ดึงจาก map ของ callback ที่ใช้งานจริง</td>
-        </tr> -->
-        <!-- <tr>
-          <td><code>AT+SATE</code></td>
-          <td><code>AT+SATE=&lt;ch&gt;,V1|V2|V3|V4,&lt;b1&gt;,...</code><br><code>AT+SATE=&lt;ch&gt;,&lt;repeat&gt;,&lt;intervalMs&gt;,V1|V2|V3|V4,&lt;b1&gt;,...</code></td>
-          <td>ส่ง CHEF packet แบบ single หรือ interval</td>
-          <td>single: <code>OK:INITSEND,Vx,S:&lt;n&gt;,CH:&lt;ch&gt;</code> แล้วจบด้วย <code>OK,SEND,Vx:&lt;n&gt;,CH:&lt;ch&gt;,FINISH:1</code><br>interval: <code>OK:INITSEND,Vx,R:&lt;repeat&gt;,I:&lt;interval&gt;,S:&lt;n&gt;,CH:&lt;ch&gt;</code> แล้วจบด้วย <code>OK,SEND,Vx:&lt;n&gt;,CH:&lt;ch&gt;,FINISH:&lt;repeat&gt;</code></td>
-          <td>size limit ต่างกันตาม version; version ไม่ถูกต้องตอบ <code>ERROR,INVALID:VER</code></td>
-        </tr>
-        <tr>
-          <td><code>AT+SECUREKEY</code></td>
-          <td><code>AT+SECUREKEY=?,&lt;secureKey&gt;</code><br><code>AT+SECUREKEY=&lt;newKey&gt;,&lt;secureKey&gt;</code><br><code>AT+SECUREKEY=RST,&lt;rstKey&gt;</code></td>
-          <td>อ่าน/เปลี่ยน/reset secure key</td>
-          <td><code>OK,KEY:&lt;key&gt;</code><br><code>OK,NEWSECUREKEY:&lt;old&gt; -&gt; &lt;new&gt;</code><br><code>OK,RSTKEY</code></td>
-          <td>มี response error หลายรูปแบบ เช่น <code>ERROR:SECUREKEY</code>, <code>ERROR,RSTKEY</code></td>
-        </tr>
-        <tr>
-          <td><code>AT+AESKEY</code></td>
-          <td><code>AT+AESKEY=?,&lt;secureKey&gt;</code><br><code>AT+AESKEY=&lt;new16charKey&gt;,&lt;secureKey&gt;</code><br><code>AT+AESKEY=RST,&lt;rstKey&gt;</code></td>
-          <td>อ่าน/เปลี่ยน/reset AES key</td>
-          <td><code>OK,KEY:&lt;aesKey&gt;</code><br><code>OK,NEWAESKEY:&lt;old&gt;-&gt;&lt;new&gt;</code><br><code>OK,RSTKEY</code></td>
-          <td>key ใหม่ต้องยาว 16 ตัวอักษร ไม่งั้น <code>ERROR:AESKEY,LENGTH!=16</code></td>
-        </tr> -->
-        <!-- <tr>
-          <td><code>AT+SETTIME</code></td>
-          <td><code>AT+SETTIME=&lt;unixTime&gt;</code></td>
-          <td>ตั้งเวลาชั่วคราวให้ Postman ใช้ส่ง packet</td>
-          <td><code>OK,SETTIME:&lt;unixTime&gt;</code></td>
-          <td>น้อยกว่า <code>946659600</code> ตอบ <code>ERROR,INVALID TIME</code></td>
-        </tr> -->
         <tr>
           <td><code>AT+SYNCTIME</code></td>
           <td><code>AT+SYNCTIME=&lt;unixTime&gt;</code></td>
@@ -593,7 +544,6 @@ AT+SYNCTIME=1783061906
           <td>LoRa TxTimeout callback</td>
           <td>Postman.cpp</td>
         </tr>
-        <!-- <tr><td>CHEF final</td><td><code>OK,SEND,V1:&lt;n&gt;,...</code>, <code>OK,SEND,V2:&lt;n&gt;,...</code>, <code>OK,SEND,V3:&lt;n&gt;,...</code>, <code>OK,SEND,V4:&lt;n&gt;,...</code></td><td>จบ <code>AT+SATE</code></td><td>Postman.cpp</td></tr> -->
       </table>
     </div>
 
@@ -604,9 +554,7 @@ AT+SYNCTIME=1783061906
           <th>Error</th>
           <th>Meaning</th>
         </tr>
-        <!-- <tr><td><code>ERROR,KEY</code> / <code>ERROR:KEY</code></td><td>security key ไม่ถูกต้อง</td></tr> -->
-        <!-- <tr><td><code>ERROR:CMD</code></td><td>รูปแบบ command ไม่ตรง branch ที่รองรับ</td></tr> -->
-        <tr>
+         <tr>
           <td><code>ERROR:CH,...</code></td>
           <td>channel parameter ขาดหรือไม่ถูกต้อง</td>
         </tr>
@@ -704,8 +652,6 @@ TX  < BLE_NAME:GroundSensor-XXXX</pre>
     <div class="card">
       <h2>9) Notes / Gotchas</h2>
       <ul>
-        <!-- <li><strong>Unknown command เงียบ:</strong> ถ้าคำสั่งไม่ match callback ระบบอาจไม่ตอบกลับอะไรเลย</li> -->
-        <!-- <li><strong>AT+CONF branch ตั้ง Project ID ยังไม่สมบูรณ์:</strong> มี response <code>OK,PROJ:...</code> แต่ในโค้ดส่วน config จริงถูก comment ไว้</li> -->
         <li><strong>AT+POST รองรับ <code>ch=-1</code>:</strong> จะสุ่ม channel ใหม่ทุก loop</li>
       </ul>
     </div>
