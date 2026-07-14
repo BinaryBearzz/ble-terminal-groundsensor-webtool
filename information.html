@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GroundSensor UART Command Specification</title>
+  <style>
+    :root {
+      --bg: #eef6ff;
+      --bg-soft: #f8fbff;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #d6e0eb;
+      --head: #0f172a;
+      --accent: #0f766e;
+      --accent-2: #0284c7;
+      --accent-3: #f59e0b;
+      --soft-accent: #ecfeff;
+      --ok: #166534;
+      --warn: #92400e;
+      --err: #991b1b;
+      --mono-bg: #0f172a;
+      --mono-fg: #e0f2fe;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, #dff6ff 0%, transparent 28%),
+        radial-gradient(circle at top right, #fef3c7 0%, transparent 24%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    h1,
+    h2,
+    h3 {
+      color: var(--head);
+      margin-top: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .page {
+      max-width: 1680px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
+      opacity: 0.9;
+    }
+
+    .hero {
+      background:
+        linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(2, 132, 199, 0.08)),
+        #ffffff;
+      border-color: #bfe6ef;
+    }
+
+    .hero h1 {
+      font-size: clamp(28px, 4vw, 40px);
+      margin-bottom: 10px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      margin-right: 6px;
+      margin-bottom: 8px;
+      border: 1px solid #b8dff1;
+      background: linear-gradient(180deg, #ffffff, #e6f7ff);
+      color: #0f4c5c;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 11px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: linear-gradient(180deg, #ecfeff, #e0f2fe);
+      color: #0f172a;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:nth-child(even) td {
+      background: #fbfdff;
+    }
+
+    tr:hover td {
+      background: #f0f9ff;
+    }
+
+    code {
+      font-family: Consolas, Monaco, monospace;
+      background: #e8f4ff;
+      color: #075985;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      border: 1px solid #c9e6fb;
+    }
+
+    pre {
+      background:
+        linear-gradient(180deg, rgba(14, 165, 233, 0.08), rgba(15, 23, 42, 0) 30%),
+        var(--mono-bg);
+      color: var(--mono-fg);
+      padding: 18px;
+      border-radius: 14px;
+      overflow: auto;
+      border: 1px solid #1e3a5f;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    ul {
+      margin-top: 8px;
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .ok {
+      color: var(--ok);
+      font-weight: bold;
+    }
+
+    .warn {
+      color: var(--warn);
+      font-weight: bold;
+    }
+
+    .err {
+      color: var(--err);
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .topology {
+      background: linear-gradient(180deg, #f8fafc, #f0f9ff);
+      border: 1px dashed #7dd3fc;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .small {
+      font-size: 13px;
+    }
+
+    h2 {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #f0fdfa, #ecfeff);
+      border: 1px solid #c6f2ef;
+      margin-bottom: 8px;
+    }
+
+    strong {
+      color: #0f172a;
+    }
+
+    /* Print styles: remove heavy decorations, preserve aspect ratios, avoid page breaks inside cards */
+    @media print {
+
+      html,
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+      }
+
+      .card {
+        box-shadow: none !important;
+        border-radius: 4px !important;
+        background: #fff !important;
+        border: 1px solid #ccc !important;
+        page-break-inside: avoid;
+        -webkit-print-color-adjust: exact;
+      }
+
+      .hero::before {
+        display: none !important;
+      }
+
+      /* Make tables and text denser for print */
+      table,
+      th,
+      td {
+        font-size: 10pt !important;
+      }
+
+      pre {
+        font-size: 9pt !important;
+        white-space: pre-wrap !important;
+      }
+
+      code {
+        background: transparent !important;
+        border: none !important;
+        color: #000 !important;
+      }
+
+      /* Ensure images and large monospace blocks scale to page width but keep intrinsic ratio */
+      img,
+      .topology pre {
+        max-width: 100% !important;
+        height: auto !important;
+        width: auto !important;
+      }
+
+      /* Avoid breaking code/example blocks across pages where possible */
+      pre {
+        page-break-inside: avoid;
+      }
+
+      /* Reduce margins to fit more content if needed */
+      body {
+        padding: 12px !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="card hero">
+      <h1>GroundSensor UART / AT Command Technical Specification</h1>
+      <p class="muted">สรุปจาก implementation จริงในไฟล์ <code>CommandHandler.cpp</code>, <code>GroundSenser.cpp</code>,
+        <code>libUartBridges.cpp</code>, <code>configLoRa.h</code>, <code>Postman.cpp</code>, และ <code>main.cpp</code>
+      </p>
+      <div>
+        <span class="pill">UART1 Bridge</span>
+        <span class="pill">115200 8N1</span>
+        <span class="pill">AT-like Protocol</span>
+        <span class="pill">LF terminated</span>
+
+      </div>
+    </div>
+    <div class="card">
+      <h2 onclick="window.open('https://binarybearzz.github.io/ble-terminal-groundsensor-webtool/', '_blank')">
+        การทดสอบด้วย Web Tool BLE & Converter value คลิกที่นี่</h2>
+    </div>
+    <div class="card">
+      <h2>1) Transport / Physical Layer</h2>
+      <table>
+        <tr>
+          <th>Item</th>
+          <th>Value</th>
+          <th>Source</th>
+        </tr>
+        <tr>
+          <td>UART instance</td>
+          <td><code>HardwareSerial UartBridges(1)</code></td>
+          <td>GroundSenser.cpp</td>
+        </tr>
+        <tr>
+          <td>Baud rate</td>
+          <td><code>115200</code></td>
+          <td>configLoRa.h / main.cpp</td>
+        </tr>
+        <tr>
+          <td>Serial mode</td>
+          <td><code>SERIAL_8N1</code></td>
+          <td>configLoRa.h</td>
+        </tr>
+        <tr>
+          <td>Bridge RX pin</td>
+          <td><code>45</code></td>
+          <td>configLoRa.h</td>
+        </tr>
+        <tr>
+          <td>Bridge TX pin</td>
+          <td><code>46</code></td>
+          <td>configLoRa.h</td>
+        </tr>
+        <tr>
+          <td>Command terminator</td>
+          <td>อ่านจน <code>'\n'</code>; รองรับ <code>CRLF</code> ได้เพราะมี <code>trim()</code></td>
+          <td>CommandHandler::Handle()</td>
+        </tr>
+        <tr>
+          <td>RX sources</td>
+          <td>รับ command ได้ทั้ง <code>Serial</code> และ <code>UartBridges</code></td>
+          <td>CommandHandler::Handle()</td>
+        </tr>
+        <tr>
+          <td>TX destinations</td>
+          <td>response หลักออก <code>UartBridges.println(...)</code>; debug ซ้ำออก <code>Serial</code></td>
+          <td>CommandHandler.cpp / Postman.cpp</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>2) Parser Rules</h2>
+      <ul>
+        <li>รูปแบบ command ใช้แนว <code>AT+CMD=param1,param2,...</code></li>
+        <li>ระบบแยกชื่อคำสั่งด้วยเครื่องหมาย <code>=</code></li>
+        <li>ถ้า command มี <code>\r</code> ท้ายบรรทัด จะถูกตัดทิ้งด้วย <code>trim()</code></li>
+        <li>unknown command จะ <strong>ไม่มี response</strong> โดย default เพราะ <code>processCommand()</code>
+          คืนค่าว่าง</li>
+        <li>response บางคำสั่งเป็นแบบ <strong>multi-line</strong> เพราะ callback ส่งออก UART โดยตรงก่อนคืนค่าปิดท้าย
+        </li>
+      </ul>
+      <pre>Host line ending recommendation: \r\n
+Examples:
+AT
+
+AT+SEND=1,123,65,66,67
+
+AT+SYNCTIME=1783061906
+</pre>
+    </div>
+
+    <div class="card">
+      <h2>3) Command Size / Payload Limits</h2>
+      <table>
+        <tr>
+          <th>Topic</th>
+          <th>Limit</th>
+          <th>Notes</th>
+        </tr>
+        <tr>
+          <td>UART command line max size</td>
+          <td><span class="warn">Not explicitly bounded in parser</span></td>
+          <td>อ่านเข้า <code>String</code> ผ่าน <code>readStringUntil('\n')</code>; code ไม่ได้ตั้ง max line length
+            โดยตรง</td>
+        </tr>
+        <tr>
+          <td>LoRa raw buffer</td>
+          <td><code>BUFFER_SIZE = 51</code> bytes</td>
+          <td>buffer ภายใน packet</td>
+        </tr>
+        <tr>
+          <td>LoRa application max packet target</td>
+          <td><code>MAX_BUFFER_SIZE = 30</code> bytes</td>
+          <td>ใช้ประกอบข้อมูล info</td>
+        </tr>
+        <tr>
+          <td><code>AT+SEND</code> data bytes</td>
+          <td><code>21</code> bytes max</td>
+          <td>เกินแล้วตอบ <code>ERROR,DATA:&gt;21</code></td>
+        </tr>
+        <tr>
+          <td>Package Format</td>
+          <td><code>sizeOfAll[0],unix[1-4],deviceId[5-6],projectId[7],data(max21)[8-n(<=28)],crc[sizeOfAll-1]</code>
+          </td>
+          <td></code></td>
+        </tr>
+      </table>
+      <p class="small muted">หมายเหตุ: “max size command” ในระดับ UART line ไม่มี hard limit ชัดเจนใน parser
+        แต่คำสั่งที่ส่งข้อมูลจะถูกจำกัดด้วยจำนวน data byte ตามตารางด้านบน</p>
+    </div>
+
+    <div class="card">
+      <h2>4) RX Command Specification (Host -&gt; Device)</h2>
+      <table>
+        <tr>
+          <th>Command</th>
+          <th>Syntax</th>
+          <th>Description</th>
+          <th>Immediate / Final Response</th>
+          <th>Validation / Notes</th>
+        </tr>
+        <tr>
+          <td><code>AT</code></td>
+          <td><code>AT</code></td>
+          <td>Ping device</td>
+          <td><code>OK</code></td>
+          <td>basic connectivity test</td>
+        </tr>
+        <!-- <tr>
+          <td><code>AT+INFO</code></td>
+          <td><code>AT+INFO=?,&lt;secureKey&gt;</code><br><code>AT+INFO=FREQ?,&lt;secureKey&gt;</code></td>
+          <td>อ่าน config และรายการ RF frequency</td>
+          <td>multi-line เช่น <code>OK,INFO:ALL</code> ... ปิดท้าย <code>INFO,FINISHED</code></td>
+          <td>key ไม่ตรงตอบ <code>ERROR,KEY</code></td>
+        </tr> -->
+        <!-- <tr>
+          <td><code>AT+CONF</code></td>
+          <td><code>AT+CONF=?,&lt;secureKey&gt;</code><br><code>AT+CONF=PROJ,&lt;projectId&gt;,&lt;secureKey&gt;</code></td>
+          <td>อ่านค่า Thing ID / Project ID ปัจจุบัน; branch ตั้ง project มีโค้ดค้างไว้</td>
+          <td><code>OK,T:&lt;thing&gt;,P:&lt;project&gt;</code> หรือ <code>OK,PROJ:&lt;project&gt;</code></td>
+          <td>ผิด key ตอบ <code>ERROR:KEY</code>; invalid command ตอบ <code>ERROR:CMD</code></td>
+        </tr> -->
+        <tr>
+          <td><code>AT+SEND</code></td>
+          <td><code>AT+SEND=&lt;ch&gt;,&lt;projectId&gt;,&lt;b1&gt;,...,&lt;bn&gt;</code></td>
+          <td>ส่ง Postman packet 1 ครั้ง</td>
+          <td>ก่อนส่งมี <code>OK:INITSEND,S:&lt;n&gt;,CH:&lt;ch&gt;,PROJ:&lt;project&gt;</code><br>จบด้วย
+            <code>OK,SEND:&lt;n&gt;,CH:&lt;ch&gt;,FINISH</code>
+          </td>
+          <td>payload max 21 bytes; ถ้า <code>ch</code> เป็น 0 หรือ &gt;8 จะสุ่ม CH 1-8</td>
+        </tr>
+        <tr>
+          <td><code>AT+POST</code></td>
+          <td>
+            <code>AT+POST=&lt;ch&gt;,&lt;repeat&gt;,&lt;intervalMs&gt;,&lt;projectId&gt;,&lt;b1&gt;,...,&lt;bn&gt;</code>
+          </td>
+          <td>ส่ง Postman แบบวนซ้ำตามช่วงเวลา</td>
+          <td>เริ่มด้วย
+            <code>OK:INITSEND,R:&lt;repeat&gt;,I:&lt;interval&gt;,S:&lt;n&gt;,CH:&lt;ch&gt;,PROJ:&lt;project&gt;</code><br>ระหว่างทางมี
+            <code>POSTLOOP:x/y</code> และ <code>OK,SEND:&lt;n&gt;,CH:&lt;ch&gt;,CNT:x/y</code><br>จบด้วย
+            <code>OK,SEND:&lt;n&gt;,CH:&lt;ch&gt;,FINISH:&lt;repeat&gt;</code>
+          </td>
+          <td><code>intervalMs</code> ต่ำกว่า 2000 จะถูกบังคับเป็น 2000; <code>ch = -1</code> ทำ random channel ทุก loop
+          </td>
+        </tr>
+        <tr>
+          <td><code>AT+RST</code></td>
+          <td><code>AT+RST</code></td>
+          <td>รีสตาร์ตบอร์ด</td>
+          <td><code>OK</code> แล้ว restart</td>
+          <td>ไม่มี final response หลัง reboot</td>
+        </tr>
+        <!-- <tr>
+          <td><code>AT+HELP</code></td>
+          <td><code>AT+HELP</code></td>
+          <td>แสดงรายการ command ที่ register</td>
+          <td>multi-line: <code>Available commands:</code> + command แต่ละบรรทัด + <code>FINISHED</code></td>
+          <td>ดึงจาก map ของ callback ที่ใช้งานจริง</td>
+        </tr> -->
+        <!-- <tr>
+          <td><code>AT+SATE</code></td>
+          <td><code>AT+SATE=&lt;ch&gt;,V1|V2|V3|V4,&lt;b1&gt;,...</code><br><code>AT+SATE=&lt;ch&gt;,&lt;repeat&gt;,&lt;intervalMs&gt;,V1|V2|V3|V4,&lt;b1&gt;,...</code></td>
+          <td>ส่ง CHEF packet แบบ single หรือ interval</td>
+          <td>single: <code>OK:INITSEND,Vx,S:&lt;n&gt;,CH:&lt;ch&gt;</code> แล้วจบด้วย <code>OK,SEND,Vx:&lt;n&gt;,CH:&lt;ch&gt;,FINISH:1</code><br>interval: <code>OK:INITSEND,Vx,R:&lt;repeat&gt;,I:&lt;interval&gt;,S:&lt;n&gt;,CH:&lt;ch&gt;</code> แล้วจบด้วย <code>OK,SEND,Vx:&lt;n&gt;,CH:&lt;ch&gt;,FINISH:&lt;repeat&gt;</code></td>
+          <td>size limit ต่างกันตาม version; version ไม่ถูกต้องตอบ <code>ERROR,INVALID:VER</code></td>
+        </tr>
+        <tr>
+          <td><code>AT+SECUREKEY</code></td>
+          <td><code>AT+SECUREKEY=?,&lt;secureKey&gt;</code><br><code>AT+SECUREKEY=&lt;newKey&gt;,&lt;secureKey&gt;</code><br><code>AT+SECUREKEY=RST,&lt;rstKey&gt;</code></td>
+          <td>อ่าน/เปลี่ยน/reset secure key</td>
+          <td><code>OK,KEY:&lt;key&gt;</code><br><code>OK,NEWSECUREKEY:&lt;old&gt; -&gt; &lt;new&gt;</code><br><code>OK,RSTKEY</code></td>
+          <td>มี response error หลายรูปแบบ เช่น <code>ERROR:SECUREKEY</code>, <code>ERROR,RSTKEY</code></td>
+        </tr>
+        <tr>
+          <td><code>AT+AESKEY</code></td>
+          <td><code>AT+AESKEY=?,&lt;secureKey&gt;</code><br><code>AT+AESKEY=&lt;new16charKey&gt;,&lt;secureKey&gt;</code><br><code>AT+AESKEY=RST,&lt;rstKey&gt;</code></td>
+          <td>อ่าน/เปลี่ยน/reset AES key</td>
+          <td><code>OK,KEY:&lt;aesKey&gt;</code><br><code>OK,NEWAESKEY:&lt;old&gt;-&gt;&lt;new&gt;</code><br><code>OK,RSTKEY</code></td>
+          <td>key ใหม่ต้องยาว 16 ตัวอักษร ไม่งั้น <code>ERROR:AESKEY,LENGTH!=16</code></td>
+        </tr> -->
+        <!-- <tr>
+          <td><code>AT+SETTIME</code></td>
+          <td><code>AT+SETTIME=&lt;unixTime&gt;</code></td>
+          <td>ตั้งเวลาชั่วคราวให้ Postman ใช้ส่ง packet</td>
+          <td><code>OK,SETTIME:&lt;unixTime&gt;</code></td>
+          <td>น้อยกว่า <code>946659600</code> ตอบ <code>ERROR,INVALID TIME</code></td>
+        </tr> -->
+        <tr>
+          <td><code>AT+SYNCTIME</code></td>
+          <td><code>AT+SYNCTIME=&lt;unixTime&gt;</code></td>
+          <td>sync เวลาและเปิด flag ใช้เวลาจาก command</td>
+          <td><code>OK,SYNCTIME:&lt;unixTime&gt;</code>(10 digits)</td>
+          <td>ถ้า valid จะ set <code>rtcOnBoard</code> on run time</td>
+        </tr>
+        <tr>
+          <td><code>AT+RSTTIME</code></td>
+          <td><code>AT+RSTTIME</code></td>
+          <td>reset mock/manual time</td>
+          <td><code>OK,RSTTIME</code></td>
+          <td>รีเซ็ตเวลา temp กลับค่า default mock time 1/1/1999</td>
+        </tr>
+        <tr>
+          <td><code>AT+SETDID (Optional)</code></td>
+          <td><code>AT+SETDID=&lt;thingId&gt;</code></td>
+          <td>ตั้ง device / thing ID</td>
+          <td><code>OK,SETDID:&lt;thingId&gt;</code></td>
+          <td>ช่วง valid คือ 1..65535; นอกช่วงตอบ <code>ERROR,INVALID DID</code></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>5) TX Messages / Status Messages (Device -&gt; Host)</h2>
+      <table>
+        <tr>
+          <th>Type</th>
+          <th>Message Pattern</th>
+          <th>When</th>
+          <th>Source</th>
+        </tr>
+        <tr>
+          <td>Boot info</td>
+          <td><code>BLE_NAME:&lt;device_name&gt;</code></td>
+          <td>ช่วง <code>setup()</code> หลัง init BLE</td>
+          <td>main.cpp</td>
+        </tr>
+        <tr>
+          <td>Send init</td>
+          <td><code>OK:INITSEND,S:&lt;n&gt;,CH:&lt;ch&gt;,PROJ:&lt;project&gt;</code></td>
+          <td>ก่อน <code>AT+SEND</code> ส่งจริง</td>
+          <td>CommandHandler.cpp</td>
+        </tr>
+        <tr>
+          <td>Loop init</td>
+          <td>
+            <code>OK:INITSEND,R:&lt;repeat&gt;,I:&lt;interval&gt;,S:&lt;n&gt;,CH:&lt;ch&gt;,PROJ:&lt;project&gt;</code>
+          </td>
+          <td>เริ่ม <code>AT+POST</code></td>
+          <td>CommandHandler.cpp</td>
+        </tr>
+        <tr>
+          <td>Loop progress</td>
+          <td><code>POSTLOOP:&lt;count&gt;/&lt;repeat&gt;</code></td>
+          <td>ทุกครั้งที่ส่งใน loop mode</td>
+          <td>Postman.cpp</td>
+        </tr>
+        <tr>
+          <td>Loop send result</td>
+          <td><code>OK,SEND:&lt;n&gt;,CH:&lt;ch&gt;,CNT:&lt;count&gt;/&lt;repeat&gt;</code></td>
+          <td>ทุกครั้งที่ส่งใน loop mode</td>
+          <td>Postman.cpp</td>
+        </tr>
+        <tr>
+          <td>Single send final</td>
+          <td><code>OK,SEND:&lt;n&gt;,CH:&lt;ch&gt;,FINISH</code></td>
+          <td>จบ <code>AT+SEND</code></td>
+          <td>Postman.cpp</td>
+        </tr>
+        <tr>
+          <td>Loop send final</td>
+          <td><code>OK,SEND:&lt;n&gt;,CH:&lt;ch&gt;,FINISH:&lt;repeat&gt;</code></td>
+          <td>จบ <code>AT+POST</code></td>
+          <td>Postman.cpp</td>
+        </tr>
+        <tr>
+          <td>LoRa callback success</td>
+          <td><code>OK,TX</code> หรือ <code>OK,TX:&lt;count&gt;</code></td>
+          <td>LoRa TxDone callback</td>
+          <td>Postman.cpp</td>
+        </tr>
+        <tr>
+          <td>LoRa callback error</td>
+          <td><code>ERROR,TX</code> หรือ <code>ERROR,TX:&lt;count&gt;</code></td>
+          <td>LoRa TxTimeout callback</td>
+          <td>Postman.cpp</td>
+        </tr>
+        <!-- <tr><td>CHEF final</td><td><code>OK,SEND,V1:&lt;n&gt;,...</code>, <code>OK,SEND,V2:&lt;n&gt;,...</code>, <code>OK,SEND,V3:&lt;n&gt;,...</code>, <code>OK,SEND,V4:&lt;n&gt;,...</code></td><td>จบ <code>AT+SATE</code></td><td>Postman.cpp</td></tr> -->
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>6) Common Error Responses</h2>
+      <table>
+        <tr>
+          <th>Error</th>
+          <th>Meaning</th>
+        </tr>
+        <!-- <tr><td><code>ERROR,KEY</code> / <code>ERROR:KEY</code></td><td>security key ไม่ถูกต้อง</td></tr> -->
+        <!-- <tr><td><code>ERROR:CMD</code></td><td>รูปแบบ command ไม่ตรง branch ที่รองรับ</td></tr> -->
+        <tr>
+          <td><code>ERROR:CH,...</code></td>
+          <td>channel parameter ขาดหรือไม่ถูกต้อง</td>
+        </tr>
+        <tr>
+          <td><code>ERROR:PROJ,...</code> / <code>ERROR,P:0</code></td>
+          <td>project ID ขาดหรือยังไม่ถูกตั้ง</td>
+        </tr>
+        <tr>
+          <td><code>ERROR:T:0</code></td>
+          <td>thing ID ยังไม่ถูกตั้ง</td>
+        </tr>
+        <tr>
+          <td><code>ERROR,DATA:&gt;N</code></td>
+          <td>จำนวน data byte เกิน limit ของ command/version</td>
+        </tr>
+        <tr>
+          <td><code>ERROR,P_SIZE&gt;N</code></td>
+          <td>payload เกิน packet limit ภายใน Postman/CHEF</td>
+        </tr>
+        <tr>
+          <td><code>ERROR,INVALID TIME</code></td>
+          <td>unix time ต่ำกว่า threshold ที่โค้ดยอมรับ</td>
+        </tr>
+        <tr>
+          <td><code>ERROR,INVALID DID</code></td>
+          <td>thingId นอกช่วง 1..65535</td>
+        </tr>
+        <tr>
+          <td><code>ERROR,INVALID:VER</code></td>
+          <td>version ของ <code>AT+SATE</code> ไม่ใช่ V1/V2/V3/V4</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>7) Topology</h2>
+      <div class="topology">
+        <pre>External Host / MCU / PC
+        |
+        | UART1 115200 8N1
+        | RX=45  TX=46
+        v
++------------------------------+
+| HardwareSerial UartBridges   |
++------------------------------+
+                |
+                v
++------------------------------+
+| CommandHandler::Handle()     |
+| - processCommand()           |
++------------------------------+
+                |
+                +-------------------+
+                |                   |
+                v                   v
+      +----------------+   +------------------+
+      | Apply key.     |   | Time / RTC       |
+      | Secure/AES key |   | rtc / rtcOnBoard |
+      +----------------+   +------------------+
+                |
+                v
+      +----------------+
+      | Postman / CHEF |
+      | LoRa packet TX |
+      +----------------+
+                |
+                v
+      +----------------+
+      | UartBridges TX |
+      | Status/Result  |
+      +----------------+
+
+Parallel boot/runtime context:
+- setup() ส่ง BLE_NAME:<device_name>
+- GS.handle() รันใน FreeRTOS task บน Core 1
+- BLE_SOS::handle() รันอีก task บน Core 1
+</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>8) Observed Example Session</h2>
+      <pre>RX  > AT+SYNCTIME=1783061906
+TX  < OK,SYNCTIME:1783061906
+
+RX  > AT+SEND=1,123,111,110,58,49
+TX  < OK:INITSEND,S:6,CH:1,PROJ:123
+TX  < OK,TX
+TX  < OK,SEND:6,CH:1,FINISH
+
+Boot TX example:
+TX  < BLE_NAME:GroundSensor-XXXX</pre>
+    </div>
+
+    <div class="card">
+      <h2>9) Notes / Gotchas</h2>
+      <ul>
+        <!-- <li><strong>Unknown command เงียบ:</strong> ถ้าคำสั่งไม่ match callback ระบบอาจไม่ตอบกลับอะไรเลย</li> -->
+        <!-- <li><strong>AT+CONF branch ตั้ง Project ID ยังไม่สมบูรณ์:</strong> มี response <code>OK,PROJ:...</code> แต่ในโค้ดส่วน config จริงถูก comment ไว้</li> -->
+        <li><strong>AT+POST รองรับ <code>ch=-1</code>:</strong> จะสุ่ม channel ใหม่ทุก loop</li>
+      </ul>
+    </div>
+  </div>
+</body>
+
+</html>
