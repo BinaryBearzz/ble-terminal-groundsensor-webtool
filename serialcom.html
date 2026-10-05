@@ -112,10 +112,28 @@
     .protocol-note code { color: var(--lime); font-family: var(--mono); }
     .footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 13px; color: #7f897f; font-size: 10px; }
     .footer a { color: var(--muted); text-decoration-color: #657065; text-underline-offset: 3px; }
+    .converter { margin-top: 18px; border: 1px solid var(--line); background: #1b1f1c; }
+    .converter-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .converter-heading h2 { margin: 0; font-size: 16px; font-weight: 700; }
+    .converter-heading p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .converter-tag { color: var(--lime); font: 10px var(--mono); }
+    .converter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+    .converter-tool { min-width: 0; padding: 14px; background: #1b1f1c; }
+    .converter-tool h3 { margin: 0 0 12px; font-size: 12px; font-weight: 700; }
+    .converter-field { display: block; margin: 0 0 8px; color: var(--muted); font-size: 10px; }
+    .converter-input { display: block; width: 100%; min-width: 0; height: 36px; margin-top: 5px; padding: 0 9px; border: 1px solid var(--line); border-radius: 0; color: var(--text); background: #151815; font: 11px var(--mono); }
+    .converter-input::placeholder { color: #687168; }
+    .converter-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .converter-actions { display: flex; gap: 7px; margin-top: 9px; }
+    .converter-actions .button { flex: 1; min-width: 0; min-height: 33px; padding: 0 8px; font-size: 10px; }
+    .converter-output { display: block; min-height: 47px; margin-top: 10px; padding: 9px; overflow-wrap: anywhere; white-space: pre-wrap; border: 1px solid var(--line); color: var(--cyan); background: #151815; font: 10px/1.6 var(--mono); }
+    .converter-check { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: var(--muted); font-size: 10px; }
+    .converter-check input { accent-color: var(--lime); }
     @media (max-width: 850px) {
       .shell { padding: 18px 16px 22px; }
       .workspace { grid-template-columns: minmax(0, 1fr) 250px; gap: 10px; }
       .console { height: 72vh; min-height: 480px; }
+      .converter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 650px) {
       .shell { padding: 14px 12px 18px; }
@@ -137,6 +155,9 @@
       .log-row { grid-template-columns: 66px 28px minmax(0, 1fr); gap: 7px; padding-right: 10px; padding-left: 10px; font-size: 11px; }
       .composer { padding: 11px; }
       .composer-hint { display: none; }
+      .converter-heading { align-items: start; padding: 13px; }
+      .converter-grid { grid-template-columns: 1fr; }
+      .converter-tool { padding: 12px; }
     }
     @media (max-width: 390px) {
       .toolbar-actions { gap: 7px; }
@@ -212,6 +233,103 @@
           <div class="protocol-note">Use Chrome or Edge on <code>HTTPS</code> or <code>localhost</code>. Select the board's USB serial port when prompted. Firmware debug lines and replies share the same UART. <code>AT+SYNCTIME=now</code> sends the browser's current Unix time; firmware holds it fixed until changed.</div>
         </section>
       </aside>
+    </section>
+    <section class="converter" aria-labelledby="converterTitle">
+      <header class="converter-heading">
+        <div>
+          <h2 id="converterTitle">IoT Ground Sensor Data Converter</h2>
+          <p>Pack sensor values into bytes and inspect encoded payloads.</p>
+        </div>
+        <span class="converter-tag">BYTE TOOLS / BIG-ENDIAN</span>
+      </header>
+      <div class="converter-grid">
+        <section class="converter-tool" aria-labelledby="timestampTitle">
+          <h3 id="timestampTitle">Timestamp / 4 bytes</h3>
+          <label class="converter-field" for="converterTimestamp">Unix time
+            <input class="converter-input" id="converterTimestamp" value="1771225912" inputmode="numeric">
+          </label>
+          <div class="converter-actions">
+            <button class="button primary" type="button" onclick="packTimestamp()">Pack bytes</button>
+            <button class="button" type="button" onclick="unpackTimestamp()">Unpack</button>
+          </div>
+          <output class="converter-output" id="converterTimestampResult" aria-live="polite"></output>
+        </section>
+
+        <section class="converter-tool" aria-labelledby="gpsTitle">
+          <h3 id="gpsTitle">GPS / 10 bytes</h3>
+          <div class="converter-pair">
+            <label class="converter-field" for="converterLatitude">Latitude
+              <input class="converter-input" id="converterLatitude" value="13.7563" inputmode="decimal">
+            </label>
+            <label class="converter-field" for="converterLongitude">Longitude
+              <input class="converter-input" id="converterLongitude" value="100.5018" inputmode="decimal">
+            </label>
+          </div>
+          <label class="converter-field" for="converterGpsBytes">Bytes
+            <input class="converter-input" id="converterGpsBytes" placeholder="0,0,0,0,0,0,0,0,0,0" inputmode="numeric">
+          </label>
+          <div class="converter-actions">
+            <button class="button primary" type="button" onclick="packGps()">Pack GPS</button>
+            <button class="button" type="button" onclick="unpackGps()">Unpack</button>
+          </div>
+          <output class="converter-output" id="converterGpsResult" aria-live="polite"></output>
+        </section>
+
+        <section class="converter-tool" aria-labelledby="floatTitle">
+          <h3 id="floatTitle">Float / IEEE 754</h3>
+          <label class="converter-field" for="converterFloat">Value or 4 bytes
+            <input class="converter-input" id="converterFloat" value="123.45" inputmode="decimal">
+          </label>
+          <div class="converter-actions">
+            <button class="button primary" type="button" onclick="packFloat()">Float to bytes</button>
+            <button class="button" type="button" onclick="unpackFloat()">Bytes to float</button>
+          </div>
+          <output class="converter-output" id="converterFloatResult" aria-live="polite"></output>
+        </section>
+
+        <section class="converter-tool" aria-labelledby="textTitle">
+          <h3 id="textTitle">Text / ASCII &amp; hex</h3>
+          <label class="converter-field" for="converterText">Text, decimal bytes, or hex
+            <input class="converter-input" id="converterText" value="Hello IoT">
+          </label>
+          <div class="converter-actions">
+            <button class="button primary" type="button" onclick="packText()">Text to bytes</button>
+            <button class="button" type="button" onclick="unpackText()">Bytes to text</button>
+          </div>
+          <output class="converter-output" id="converterTextResult" aria-live="polite"></output>
+        </section>
+
+        <section class="converter-tool" aria-labelledby="integerTitle">
+          <h3 id="integerTitle">16-bit integer / 2 bytes</h3>
+          <label class="converter-field" for="converterInteger">Decimal value (0-65535)
+            <input class="converter-input" id="converterInteger" value="20" inputmode="numeric">
+          </label>
+          <label class="converter-field" for="converterIntegerBytes">Big-endian bytes
+            <input class="converter-input" id="converterIntegerBytes" value="0,20" inputmode="numeric">
+          </label>
+          <div class="converter-actions">
+            <button class="button primary" type="button" onclick="packInteger16()">Decimal to bytes</button>
+            <button class="button" type="button" onclick="unpackInteger16()">Bytes to decimal</button>
+          </div>
+          <output class="converter-output" id="converterIntegerResult" aria-live="polite"></output>
+        </section>
+
+        <section class="converter-tool" aria-labelledby="phoneTitle">
+          <h3 id="phoneTitle">Phone XOR cipher</h3>
+          <label class="converter-field" for="converterPhone">Phone hex or cipher bytes
+            <input class="converter-input" id="converterPhone" value="0888888888" inputmode="text">
+          </label>
+          <label class="converter-field" for="converterXorKey">XOR key
+            <input class="converter-input" id="converterXorKey" type="password" autocomplete="off">
+          </label>
+          <label class="converter-check"><input id="converterShowKey" type="checkbox" onchange="toggleConverterKey()"> Show key</label>
+          <div class="converter-actions">
+            <button class="button primary" type="button" onclick="processPhoneXor('enc')">Encrypt</button>
+            <button class="button" type="button" onclick="processPhoneXor('dec')">Decrypt</button>
+          </div>
+          <output class="converter-output" id="converterPhoneResult" aria-live="polite"></output>
+        </section>
+      </div>
     </section>
     <footer class="footer"><span>FIELDLINK CONSOLE <span aria-hidden="true">/</span> WEB SERIAL</span><a href="INSTRUCTIONS_POSTMAN_PORT.md">AT command reference</a></footer>
   </main>
@@ -385,6 +503,167 @@
         addLog('SYS', `Clipboard unavailable: ${error.message}`, true);
       }
     });
+
+    function showConverterResult(id, text) {
+      document.querySelector(`#${id}`).textContent = text;
+    }
+
+    function parseConverterBytes(value, expectedLength) {
+      const bytes = value.split(',').map(part => Number(part.trim()));
+      if (bytes.length !== expectedLength || bytes.some(byte => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+        throw new Error(`Enter exactly ${expectedLength} comma-separated bytes (0-255).`);
+      }
+      return bytes;
+    }
+
+    function packTimestamp() {
+      const timestamp = Number(document.querySelector('#converterTimestamp').value);
+      if (!Number.isInteger(timestamp) || timestamp < 0 || timestamp > 0xFFFFFFFF) {
+        showConverterResult('converterTimestampResult', 'Enter a Unix timestamp from 0 to 4294967295.');
+        return;
+      }
+      const bytes = [timestamp >>> 24, (timestamp >>> 16) & 0xFF, (timestamp >>> 8) & 0xFF, timestamp & 0xFF];
+      showConverterResult('converterTimestampResult', `Bytes: [${bytes.join(', ')}] / 4 bytes`);
+    }
+
+    function unpackTimestamp() {
+      try {
+        const bytes = parseConverterBytes(document.querySelector('#converterTimestamp').value, 4);
+        const timestamp = bytes[0] * 0x1000000 + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3];
+        showConverterResult('converterTimestampResult', `Unix: ${timestamp}\n${new Date(timestamp * 1000).toLocaleString()}`);
+      } catch (error) {
+        showConverterResult('converterTimestampResult', error.message);
+      }
+    }
+
+    function packGps() {
+      const latitude = Number(document.querySelector('#converterLatitude').value);
+      const longitude = Number(document.querySelector('#converterLongitude').value);
+      if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) {
+        showConverterResult('converterGpsResult', 'Enter valid coordinates (latitude -90..90, longitude -180..180).');
+        return;
+      }
+      const coordinateBytes = value => {
+        const magnitude = Math.round(Math.abs(value) * 10000000);
+        return [magnitude >>> 24, (magnitude >>> 16) & 0xFF, (magnitude >>> 8) & 0xFF, magnitude & 0xFF, value < 0 ? 0xFF : 0];
+      };
+      const bytes = [...coordinateBytes(latitude), ...coordinateBytes(longitude)];
+      document.querySelector('#converterGpsBytes').value = bytes.join(',');
+      showConverterResult('converterGpsResult', `Bytes: [${bytes.join(', ')}] / 10 bytes`);
+    }
+
+    function unpackGps() {
+      try {
+        const bytes = parseConverterBytes(document.querySelector('#converterGpsBytes').value, 10);
+        const coordinate = offset => {
+          const magnitude = bytes[offset] * 0x1000000 + (bytes[offset + 1] << 16) + (bytes[offset + 2] << 8) + bytes[offset + 3];
+          if (bytes[offset + 4] !== 0 && bytes[offset + 4] !== 0xFF) throw new Error('Sign bytes must be 0 or 255.');
+          return (bytes[offset + 4] === 0xFF ? -magnitude : magnitude) / 10000000;
+        };
+        showConverterResult('converterGpsResult', `Latitude: ${coordinate(0)}\nLongitude: ${coordinate(5)}`);
+      } catch (error) {
+        showConverterResult('converterGpsResult', error.message);
+      }
+    }
+
+    function packFloat() {
+      const value = Number(document.querySelector('#converterFloat').value);
+      if (!Number.isFinite(value)) {
+        showConverterResult('converterFloatResult', 'Enter a finite floating-point value.');
+        return;
+      }
+      const buffer = new ArrayBuffer(4);
+      new DataView(buffer).setFloat32(0, value, false);
+      const bytes = Array.from(new Uint8Array(buffer));
+      showConverterResult('converterFloatResult', `Bytes: [${bytes.join(', ')}] / 4 bytes`);
+    }
+
+    function unpackFloat() {
+      try {
+        const bytes = parseConverterBytes(document.querySelector('#converterFloat').value, 4);
+        const buffer = new Uint8Array(bytes).buffer;
+        showConverterResult('converterFloatResult', `Float: ${new DataView(buffer).getFloat32(0, false)}`);
+      } catch (error) {
+        showConverterResult('converterFloatResult', error.message);
+      }
+    }
+
+    function packText() {
+      const text = document.querySelector('#converterText').value;
+      const bytes = Array.from(new TextEncoder().encode(text));
+      const hex = bytes.map(byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+      showConverterResult('converterTextResult', `Hex: ${hex}\nBytes: [${bytes.join(', ')}] / ${bytes.length} bytes`);
+    }
+
+    function unpackText() {
+      const input = document.querySelector('#converterText').value.trim();
+      try {
+        let bytes;
+        if (input.includes(',')) {
+          bytes = parseConverterBytes(input, input.split(',').length);
+        } else {
+          const hex = input.replace(/\s+/g, '');
+          if (!/^(?:[\da-fA-F]{2})+$/.test(hex)) throw new Error('Enter comma-separated decimal bytes or an even-length hex string.');
+          bytes = hex.match(/.{2}/g).map(pair => parseInt(pair, 16));
+        }
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+        showConverterResult('converterTextResult', `Text: ${text}\nBytes: [${bytes.join(', ')}]`);
+      } catch (error) {
+        showConverterResult('converterTextResult', error.message);
+      }
+    }
+
+    function packInteger16() {
+      const value = Number(document.querySelector('#converterInteger').value);
+      if (!Number.isInteger(value) || value < 0 || value > 0xFFFF) {
+        showConverterResult('converterIntegerResult', 'Enter an integer from 0 to 65535.');
+        return;
+      }
+      const bytes = [(value >>> 8) & 0xFF, value & 0xFF];
+      document.querySelector('#converterIntegerBytes').value = bytes.join(',');
+      showConverterResult('converterIntegerResult', `Big-endian bytes: [${bytes.join(', ')}]`);
+    }
+
+    function unpackInteger16() {
+      try {
+        const bytes = parseConverterBytes(document.querySelector('#converterIntegerBytes').value, 2);
+        const value = (bytes[0] << 8) | bytes[1];
+        document.querySelector('#converterInteger').value = value;
+        showConverterResult('converterIntegerResult', `Decimal: ${value}`);
+      } catch (error) {
+        showConverterResult('converterIntegerResult', error.message);
+      }
+    }
+
+    function processPhoneXor(mode) {
+      const input = document.querySelector('#converterPhone').value.trim();
+      const key = document.querySelector('#converterXorKey').value;
+      if (!key) {
+        showConverterResult('converterPhoneResult', 'Enter an XOR key.');
+        return;
+      }
+      try {
+        let bytes;
+        if (input.includes(',')) {
+          bytes = parseConverterBytes(input, input.split(',').length);
+        } else {
+          const hex = input.replace(/\s+/g, '');
+          if (!/^(?:[\da-fA-F]{2})+$/.test(hex)) throw new Error('Enter an even-length hex string or comma-separated bytes.');
+          bytes = hex.match(/.{2}/g).map(pair => parseInt(pair, 16));
+        }
+        const keyBytes = Array.from(new TextEncoder().encode(key));
+        const result = bytes.map((byte, index) => byte ^ keyBytes[index % keyBytes.length]);
+        const hex = result.map(byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+        showConverterResult('converterPhoneResult', `${mode === 'enc' ? 'Cipher' : 'Plain'} hex: ${hex}\nBytes: [${result.join(', ')}] / ${result.length} bytes`);
+      } catch (error) {
+        showConverterResult('converterPhoneResult', error.message);
+      }
+    }
+
+    function toggleConverterKey() {
+      document.querySelector('#converterXorKey').type = document.querySelector('#converterShowKey').checked ? 'text' : 'password';
+    }
+
     navigator.serial?.addEventListener('disconnect', event => {
       if (event.target === port) disconnect();
     });
