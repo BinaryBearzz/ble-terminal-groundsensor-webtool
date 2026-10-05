@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STM32 WebUSB ST-Link Flasher</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 20px; line-height: 1.5; }
+    .card { border: 1px solid #ccc; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    button { background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    input[type="file"] { margin: 10px 0; }
+    progress { width: 100%; margin-top: 10px; }
+    #log { background: #1e1e1e; color: #00ff00; font-family: monospace; padding: 15px; border-radius: 4px; height: 220px; overflow-y: auto; margin-top: 15px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>STM32F1 WebUSB ST-Link Flasher</h2>
+  <p>Flash ผ่าน ST-Link บนบอร์ด (SWD) <strong>ไม่ต้องกดปุ่ม BOOT0/RESET</strong> &mdash; ใช้ Chrome/Edge, ปิด PlatformIO monitor/openocd ที่ใช้ ST-Link อยู่ก่อน</p>
+
+  <div>
+    <label>เลือกไฟล์ Firmware (.bin):</label><br>
+    <input type="file" id="fileInput" accept=".bin">
+  </div>
+  <div>
+    <label>หรือใส่ URL ของไฟล์ .bin (ใช้เมื่อไม่ได้เลือกไฟล์):</label><br>
+    <input type="url" id="urlInput" placeholder="https://example.com/firmware.bin" style="width:100%; padding:6px; box-sizing:border-box;">
+  </div>
+
+  <br>
+  <button id="flashBtn">Connect &amp; Flash</button>
+  <progress id="bar" value="0" max="100"></progress>
+
+  <div id="log"></div>
+</div>
+
+<script>
+  const flashBtn = document.getElementById('flashBtn');
+  const fileInput = document.getElementById('fileInput');
+  const urlInput = document.getElementById('urlInput');
+  const logDiv = document.getElementById('log');
+  const bar = document.getElementById('bar');
+
+  function log(msg) {
+    logDiv.textContent += msg + '\n';
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const hex = n => '0x' + (n >>> 0).toString(16).toUpperCase();
+
+  // ST-Link V2 / V2-1 USB protocol
+  const ST_VID = 0x0483;
+  const GET_VERSION = 0xF1, DEBUG = 0xF2, DFU = 0xF3, GET_MODE = 0xF5;
+  const DBG_ENTER = 0x30, ENTER_SWD = 0xA3, DBG_NRST = 0x3C;
+  const READMEM_32 = 0x07, WRITEMEM_32 = 0x08;
+  const STATUS_OK = 0x80;
+
+  // STM32F1 registers
+  const DHCSR = 0xE000EDF0, AIRCR = 0xE000ED0C;
+  const DBGMCU_IDCODE = 0xE0042000, FLASH_SIZE_REG = 0x1FFFF7E0;
+  const FLASH_BASE = 0x08000000;
+  const FPEC = 0x40022000;
+  const FLASH_KEYR = FPEC + 0x04, FLASH_SR = FPEC + 0x0C, FLASH_CR = FPEC + 0x10, FLASH_AR = FPEC + 0x14;
+  const CR_PG = 0x01, CR_PER = 0x02, CR_STRT = 0x40, CR_LOCK = 0x80;
+  const SR_BSY = 0x01, SR_ERR = 0x14; // PGERR | WRPRTERR
+  const F1_IDS = [0x410, 0x412, 0x414, 0x418, 0x420, 0x428, 0x430];
+  const TWO_KB_PAGE_IDS = [0x414, 0x418, 0x430];
+
+  let dev, epIn, epOut;
+
+  const le32 = v => [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF];
+  const le16 = v => [v & 0xFF, (v >>> 8) & 0xFF];
+
+  async function xfer(cmd, replyLen = 0, outData = null) {
+    const pkt = new Uint8Array(16);
+    pkt.set(cmd);
+    let r = await dev.transferOut(epOut, pkt);
+    if (r.status !== 'ok') throw new Error('USB OUT error: ' + r.status);
+    if (outData) {
+      r = await dev.transferOut(epOut, outData);
+      if (r.status !== 'ok') throw new Error('USB OUT data error: ' + r.status);
+    }
+    if (!replyLen) return null;
+    const rep = await dev.transferIn(epIn, replyLen);
+    if (rep.status !== 'ok') throw new Error('USB IN error: ' + rep.status);
+    return new Uint8Array(rep.data.buffer, rep.data.byteOffset, rep.data.byteLength);
+  }
+
+  async function debugCmd(sub, params = [], replyLen = 2) {
+    const r = await xfer([DEBUG, sub, ...params], replyLen);
+    if (r[0] !== STATUS_OK) throw new Error(`ST-Link ตอบ status ${hex(r[0])} (cmd ${hex(sub)})`);
+  }
+
+  async function readMem(addr, len) {
+    return xfer([DEBUG, READMEM_32, ...le32(addr), ...le16(len)], len);
+  }
+  async function writeMem(addr, data) {
+    await xfer([DEBUG, WRITEMEM_32, ...le32(addr), ...le16(data.length)], 0, data);
+  }
+  async function readU32(addr) {
+    const b = await readMem(addr, 4);
+    return (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+  }
+  async function writeU32(addr, v) {
+    await writeMem(addr, new Uint8Array(le32(v)));
+  }
+
+  async function openStLink() {
+    dev = await navigator.usb.requestDevice({ filters: [{ vendorId: ST_VID }] });
+    await dev.open();
+    if (dev.configuration === null) await dev.selectConfiguration(1);
+
+    // หา interface แบบ vendor-specific ที่มี bulk IN/OUT (debug interface ของ ST-Link)
+    for (const itf of dev.configuration.interfaces) {
+      const alt = itf.alternates[0];
+      if (alt.interfaceClass !== 0xFF) continue;
+      const outs = alt.endpoints.filter(e => e.type === 'bulk' && e.direction === 'out');
+      const ins = alt.endpoints.filter(e => e.type === 'bulk' && e.direction === 'in');
+      if (!outs.length || !ins.length) continue;
+      await dev.claimInterface(itf.interfaceNumber);
+      epOut = outs[0].endpointNumber;
+      epIn = (ins.find(e => e.endpointNumber === epOut) || ins[0]).endpointNumber;
+      log(`ST-Link interface ${itf.interfaceNumber}, EP OUT ${epOut}, EP IN ${epIn}`);
+      return;
+    }
+    throw new Error('ไม่พบ debug interface ของ ST-Link');
+  }
+
+  async function enterSwd() {
+    const ver = await xfer([GET_VERSION], 6);
+    const v = (ver[0] << 8) | ver[1];
+    log(`ST-Link V${v >> 12} J${(v >> 6) & 0x3F}`);
+
+    const mode = (await xfer([GET_MODE], 2))[0];
+    if (mode === 0) { // DFU -> ออกจาก DFU ก่อน
+      await xfer([DFU, 0x07]);
+      await sleep(100);
+    }
+    await debugCmd(DBG_ENTER, [ENTER_SWD]);
+  }
+
+  async function waitIdle(timeoutMs = 10000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs) {
+      if (!((await readU32(FLASH_SR)) & SR_BSY)) return;
+      await sleep(2);
+    }
+    throw new Error('Flash busy timeout');
+  }
+
+  async function unlockFlash() {
+    if ((await readU32(FLASH_CR)) & CR_LOCK) {
+      await writeU32(FLASH_KEYR, 0x45670123);
+      await writeU32(FLASH_KEYR, 0xCDEF89AB);
+    }
+    if ((await readU32(FLASH_CR)) & CR_LOCK) throw new Error('ปลดล็อก Flash ไม่สำเร็จ (อาจเปิด Read Protection)');
+  }
+
+  async function flash(firmware) {
+    const id = (await readU32(DBGMCU_IDCODE)) & 0xFFF;
+    if (!F1_IDS.includes(id)) throw new Error(`ไม่ใช่ STM32F1 (DEV_ID ${hex(id)})`);
+    const flashKB = (await readU32(FLASH_SIZE_REG)) & 0xFFFF;
+    const pageSize = TWO_KB_PAGE_IDS.includes(id) ? 2048 : 1024;
+    log(`DEV_ID ${hex(id)}, Flash ${flashKB} KB, page ${pageSize} B`);
+    if (firmware.length > flashKB * 1024) throw new Error('ไฟล์ใหญ่เกิน Flash ของชิป');
+
+    // Halt core ก่อนแตะ Flash
+    await writeU32(DHCSR, 0xA05F0003);
+    await sleep(20);
+
+    // เติม 0xFF ให้ยาวเป็นพหุคูณของ 4
+    const data = new Uint8Array(Math.ceil(firmware.length / 4) * 4).fill(0xFF);
+    data.set(firmware);
+
+    await unlockFlash();
+    await writeU32(FLASH_SR, 0x34); // เคลียร์ flag error
+
+    log('กำลังล้าง Flash...');
+    for (let a = 0; a < data.length; a += pageSize) {
+      await writeU32(FLASH_CR, CR_PER);
+      await writeU32(FLASH_AR, FLASH_BASE + a);
+      await writeU32(FLASH_CR, CR_PER | CR_STRT);
+      await waitIdle();
+    }
+    await writeU32(FLASH_CR, 0);
+
+    log('กำลังเขียน Flash...');
+    const CHUNK = 256;
+    await writeU32(FLASH_CR, CR_PG);
+    let lastPct = -1;
+    for (let off = 0; off < data.length; off += CHUNK) {
+      const chunk = data.subarray(off, Math.min(off + CHUNK, data.length));
+      if (!chunk.every(b => b === 0xFF)) {
+        await writeMem(FLASH_BASE + off, chunk);
+        await waitIdle();
+      }
+      const pct = Math.round(Math.min(off + CHUNK, data.length) * 100 / data.length);
+      bar.value = pct;
+      if (pct >= lastPct + 10) { log(`Write ${pct}%`); lastPct = pct; }
+    }
+    await writeU32(FLASH_CR, 0);
+    const sr = await readU32(FLASH_SR);
+    if (sr & SR_ERR) throw new Error(`Flash error SR=${hex(sr)} (เช็ก write protection)`);
+
+    log('กำลัง Verify...');
+    const VCHUNK = 512;
+    for (let off = 0; off < data.length; off += VCHUNK) {
+      const n = Math.min(VCHUNK, data.length - off);
+      const got = await readMem(FLASH_BASE + off, n);
+      for (let i = 0; i < n; i++) {
+        if (got[i] !== data[off + i]) throw new Error(`Verify ล้มเหลวที่ ${hex(FLASH_BASE + off + i)}`);
+      }
+    }
+    log('Verify ผ่าน');
+
+    await writeU32(FLASH_CR, CR_LOCK);
+  }
+
+  async function resetAndRun() {
+    await writeU32(AIRCR, 0x05FA0004); // SYSRESETREQ
+    await sleep(100);
+    await writeU32(DHCSR, 0xA05F0000); // เคลียร์ halt ให้แอปรัน
+  }
+
+  // ไฟล์ที่เลือกมีความสำคัญกว่า URL; URL ต้องเปิด CORS ไว้ (หรือเป็น origin เดียวกับหน้านี้)
+  async function loadFirmware() {
+    if (fileInput.files.length) {
+      log(`ไฟล์: ${fileInput.files[0].name}`);
+      return new Uint8Array(await fileInput.files[0].arrayBuffer());
+    }
+    const url = new URL(urlInput.value.trim());
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('URL ต้องเป็น http(s)');
+    log(`ดาวน์โหลด: ${url}`);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`ดาวน์โหลดไม่สำเร็จ: HTTP ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  flashBtn.addEventListener('click', async () => {
+    if (!fileInput.files.length && !urlInput.value.trim()) { alert('เลือกไฟล์ .bin หรือใส่ URL ก่อนครับ'); return; }
+    if (!('usb' in navigator)) { alert('เบราว์เซอร์นี้ไม่รองรับ WebUSB (ใช้ Chrome หรือ Edge)'); return; }
+
+    flashBtn.disabled = true;
+    bar.value = 0;
+    logDiv.textContent = '';
+    try {
+      // requestDevice ต้องเรียกขณะยังอยู่ใน user gesture จึงเปิด ST-Link ก่อนดาวน์โหลด
+      await openStLink();
+      const firmware = await loadFirmware();
+      log(`Firmware: ${firmware.length} bytes`);
+      await enterSwd();
+      await flash(firmware);
+      await resetAndRun();
+      log('อัปโหลดเสร็จสิ้น แอปเริ่มทำงานแล้ว');
+    } catch (err) {
+      log('เกิดข้อผิดพลาด: ' + err.message);
+    } finally {
+      try { if (dev?.opened) await dev.close(); } catch (e) {}
+      flashBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
