@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171a18">
+  <title>Fieldlink | Serial Console</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #171a18;
+      --panel: #202421;
+      --panel-raised: #282d29;
+      --line: #3a423c;
+      --text: #f0f1e8;
+      --muted: #9ba49b;
+      --lime: #c8f36a;
+      --lime-ink: #19200d;
+      --cyan: #8bd8d0;
+      --amber: #f0bb6b;
+      --red: #ff8c7d;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--text);
+      background-color: var(--canvas);
+      background-image: radial-gradient(#ffffff0b 0.7px, transparent 0.7px);
+      background-size: 6px 6px;
+      font-family: var(--sans);
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+    .shell { width: min(1440px, 100%); margin: 0 auto; padding: 24px 30px 30px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 0 20px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand-mark { display: grid; width: 38px; height: 38px; place-items: center; color: var(--lime); border: 1px solid #91b747; background: #c8f36a12; }
+    .brand-mark svg { width: 23px; height: 23px; }
+    .brand-name { font-size: 14px; font-weight: 800; letter-spacing: 1.4px; }
+    .brand-sub { margin-top: 3px; color: var(--muted); font-size: 11px; letter-spacing: .7px; }
+    .connection { display: flex; align-items: center; gap: 13px; }
+    .connection-state { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .state-dot { width: 8px; height: 8px; border-radius: 50%; background: #727a73; }
+    .connection.connected .state-dot { background: var(--lime); box-shadow: 0 0 12px #c8f36a80; }
+    .connection.connected .connection-state { color: var(--lime); }
+    .button { display: inline-flex; min-height: 39px; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid var(--line); color: var(--text); background: var(--panel-raised); font-size: 12px; font-weight: 700; }
+    .button:hover:not(:disabled) { border-color: #727c72; background: #303731; }
+    .button:disabled { cursor: not-allowed; opacity: .45; }
+    .button svg { width: 15px; height: 15px; }
+    .button.primary { color: var(--lime-ink); border-color: var(--lime); background: var(--lime); }
+    .button.primary:hover:not(:disabled) { border-color: #d7ff83; background: #d7ff83; }
+    .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 27px 0 20px; }
+    h1 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: 0; }
+    .heading-meta { margin-top: 7px; color: var(--muted); font-size: 12px; }
+    .session-label { color: var(--muted); font: 11px var(--mono); }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: stretch; }
+    .console, .sidebar { min-width: 0; border: 1px solid var(--line); background: #1b1f1c; }
+    .console { display: flex; height: min(70vh, 760px); min-height: 480px; flex-direction: column; }
+    .console-toolbar { display: flex; min-height: 49px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .stream-title { display: flex; align-items: center; gap: 9px; font-size: 11px; font-weight: 800; letter-spacing: .8px; }
+    .stream-title svg { width: 15px; height: 15px; color: var(--cyan); }
+    .toolbar-actions { display: flex; align-items: center; gap: 14px; }
+    .check-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; cursor: pointer; }
+    .check-label input { accent-color: var(--lime); }
+    .icon-button { display: inline-grid; width: 30px; height: 30px; place-items: center; padding: 0; border: 1px solid transparent; color: var(--muted); background: transparent; }
+    .icon-button:hover { color: var(--text); border-color: var(--line); }
+    .icon-button svg { width: 15px; height: 15px; }
+    .log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 0; background-image: linear-gradient(#ffffff04 1px, transparent 1px); background-size: 100% 28px; font: 12px/1.8 var(--mono); scrollbar-color: #515a51 transparent; }
+    .log-empty { padding: 22px 18px; color: #737d73; }
+    .log-row { display: grid; grid-template-columns: 82px 34px minmax(0, 1fr); gap: 10px; padding: 2px 16px; }
+    .log-time { color: #7f897f; }
+    .log-kind { font-weight: 700; }
+    .log-kind.tx { color: var(--amber); }
+    .log-kind.rx { color: var(--cyan); }
+    .log-kind.sys { color: var(--lime); }
+    .log-text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; color: #e0e5dc; }
+    .log-row.error .log-text { color: var(--red); }
+    .composer { padding: 14px; border-top: 1px solid var(--line); background: var(--panel); }
+    .composer-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .field-label { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; }
+    .composer-hint { color: #7f897f; font-size: 10px; }
+    .compose-row { display: flex; gap: 8px; }
+    .command-input { flex: 1; width: 0; min-width: 0; height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 0; color: var(--text); background: #151815; font: 12px var(--mono); }
+    .command-input::placeholder { color: #687168; }
+    .send-button { min-width: 92px; }
+    .composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 9px; }
+    .line-ending { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+    .line-ending select, .baud-select { height: 29px; padding: 0 8px; border: 1px solid var(--line); border-radius: 0; color: var(--text); background: #151815; font: 11px var(--mono); }
+    .serial-settings { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+    .baud-select { height: 32px; }
+    .sidebar { display: flex; flex-direction: column; background: var(--panel); }
+    .side-section { padding: 15px; border-bottom: 1px solid var(--line); }
+    .side-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; }
+    .side-title { font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+    .side-count { color: var(--muted); font: 10px var(--mono); }
+    .preset-list { display: grid; gap: 5px; }
+    .preset { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 9px; border: 1px solid transparent; color: var(--text); text-align: left; background: transparent; }
+    .preset:hover { border-color: var(--line); background: #ffffff06; }
+    .preset-name { font-size: 11px; font-weight: 700; }
+    .preset-command { margin-top: 3px; color: var(--muted); font: 10px var(--mono); }
+    .preset svg { width: 13px; height: 13px; flex: none; color: #7f897f; }
+    .protocol { flex: 1; padding: 15px; }
+    .protocol dl { display: grid; grid-template-columns: auto 1fr; gap: 11px 12px; margin: 15px 0 0; font-size: 11px; }
+    .protocol dt { color: var(--muted); }
+    .protocol dd { margin: 0; color: var(--text); text-align: right; font-family: var(--mono); }
+    .protocol-note { margin-top: 18px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.6; }
+    .protocol-note code { color: var(--lime); font-family: var(--mono); }
+    .footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 13px; color: #7f897f; font-size: 10px; }
+    .footer a { color: var(--muted); text-decoration-color: #657065; text-underline-offset: 3px; }
+    @media (max-width: 850px) {
+      .shell { padding: 18px 16px 22px; }
+      .workspace { grid-template-columns: minmax(0, 1fr) 250px; gap: 10px; }
+      .console { height: 72vh; min-height: 480px; }
+    }
+    @media (max-width: 650px) {
+      .shell { padding: 14px 12px 18px; }
+      .brand-sub { display: none; }
+      .connection-state { font-size: 0; }
+      .connection-state .state-dot { width: 9px; height: 9px; }
+      .button.connect-button { min-height: 36px; padding: 0 10px; font-size: 11px; }
+      .page-heading { padding: 20px 0 14px; }
+      h1 { font-size: 21px; }
+      .session-label { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .console { height: 66vh; min-height: 420px; }
+      .sidebar { display: grid; grid-template-columns: 1fr; }
+      .side-section { padding: 12px; }
+      .preset-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .preset { min-height: 53px; padding: 7px; }
+      .preset-command { font-size: 9px; }
+      .protocol { display: none; }
+      .log-row { grid-template-columns: 66px 28px minmax(0, 1fr); gap: 7px; padding-right: 10px; padding-left: 10px; font-size: 11px; }
+      .composer { padding: 11px; }
+      .composer-hint { display: none; }
+    }
+    @media (max-width: 390px) {
+      .toolbar-actions { gap: 7px; }
+      .check-label { font-size: 10px; }
+      .serial-settings { font-size: 0; }
+      .line-ending { gap: 5px; }
+      .send-button { min-width: 43px; width: 43px; padding: 0; font-size: 0; }
+      .send-button svg { width: 17px; height: 17px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7a6 6 0 0 0 0 10M16 7a6 6 0 0 1 0 10M5 4a11 11 0 0 0 0 16M19 4a11 11 0 0 1 0 16"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+        </div>
+        <div><div class="brand-name">FIELDLINK</div><div class="brand-sub">STM32 GROUND SENSOR / UART</div></div>
+      </div>
+      <div class="connection" id="connection">
+        <div class="connection-state"><span class="state-dot"></span><span id="connectionText">Disconnected</span></div>
+        <button class="button primary connect-button" id="connectButton" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 17h10M5 7a2 2 0 1 0 0 .01M19 7a2 2 0 1 0 0 .01M5 17a2 2 0 1 0 0 .01M19 17a2 2 0 1 0 0 .01M12 7v10"/></svg>
+          <span id="connectLabel">Connect device</span>
+        </button>
+      </div>
+    </header>
+    <div class="page-heading">
+      <div><h1>Serial console</h1><div class="heading-meta">Command terminal for POSTMAN ground sensor firmware</div></div>
+      <div class="session-label" id="sessionLabel">NO ACTIVE SESSION</div>
+    </div>
+    <section class="workspace" aria-label="Serial monitor workspace">
+      <section class="console" aria-label="Serial monitor">
+        <div class="console-toolbar">
+          <div class="stream-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h16"/><path d="m17 10 3 2-3 2"/></svg>LIVE STREAM <span id="lineCount" class="side-count">0 LINES</span></div>
+          <div class="toolbar-actions">
+            <label class="check-label"><input id="autoScroll" type="checkbox" checked> Auto-scroll</label>
+            <button class="icon-button" id="copyButton" type="button" title="Copy monitor output" aria-label="Copy monitor output"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="1"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button>
+            <button class="icon-button" id="clearButton" type="button" title="Clear monitor output" aria-label="Clear monitor output"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"/></svg></button>
+          </div>
+        </div>
+        <div class="log" id="log" role="log" aria-live="polite" aria-label="Serial data log"><div class="log-empty" id="emptyMessage">Connect a serial device to start monitoring. Incoming lines will appear here.</div></div>
+        <form class="composer" id="commandForm">
+          <div class="composer-top"><label class="field-label" for="commandInput">Command</label><span class="composer-hint">Enter to send</span></div>
+          <div class="compose-row"><input class="command-input" id="commandInput" name="command" type="text" placeholder="Type an AT command..." autocomplete="off" spellcheck="false" aria-label="AT command"><button class="button primary send-button" id="sendButton" type="submit" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Send</button></div>
+          <div class="composer-foot">
+            <label class="line-ending" for="lineEnding">Line ending<select id="lineEnding"><option value="crlf" selected>CRLF</option><option value="lf">LF</option><option value="cr">CR</option><option value="none">None</option></select></label>
+            <label class="serial-settings" for="baudRate">BAUD<select class="baud-select" id="baudRate"><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option selected>115200</option><option>230400</option></select></label>
+          </div>
+        </form>
+      </section>
+      <aside class="sidebar" aria-label="Command reference">
+        <section class="side-section">
+          <div class="side-heading"><div class="side-title">QUICK COMMANDS</div><div class="side-count">07</div></div>
+          <div class="preset-list">
+            <button class="preset" type="button" data-command="AT"><span><span class="preset-name">Ping</span><span class="preset-command">AT</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+INFO=?"><span><span class="preset-name">Device info</span><span class="preset-command">AT+INFO=?</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+CONF=?"><span><span class="preset-name">Read config</span><span class="preset-command">AT+CONF=?</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+CONF=125,69"><span><span class="preset-name">Set config</span><span class="preset-command">AT+CONF=thing,project</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+SEND=1,69,10,20,30"><span><span class="preset-name">Send POSTMAN</span><span class="preset-command">AT+SEND=ch,proj,data...</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+SATE=1,V1,10,20,30"><span><span class="preset-name">Send SATE</span><span class="preset-command">AT+SATE=ch,V1..V4,data...</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+SYNCTIME=now"><span><span class="preset-name">Set current time</span><span class="preset-command">AT+SYNCTIME=now</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+MOCK=1"><span><span class="preset-name">Enable POSTMAN Mock</span><span class="preset-command">AT+MOCK=1</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+MOCK=0"><span><span class="preset-name">Disable POSTMAN Mock</span><span class="preset-command">AT+MOCK=0</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+RST"><span><span class="preset-name">Reset MCU</span><span class="preset-command">AT+RST</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="preset" type="button" data-command="AT+MEMRST"><span><span class="preset-name">Reset EEPROM</span><span class="preset-command">AT+MEMRST</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+          </div>
+        </section>
+        <section class="protocol">
+          <div class="side-heading"><div class="side-title">LINK SETTINGS</div><span class="side-count">UART</span></div>
+          <dl><dt>Baud rate</dt><dd>115200</dd><dt>Data format</dt><dd>8-N-1</dd><dt>Command ending</dt><dd>CR / LF</dd><dt>Interface</dt><dd>Web Serial</dd></dl>
+          <div class="protocol-note">Use Chrome or Edge on <code>HTTPS</code> or <code>localhost</code>. Select the board's USB serial port when prompted. Firmware debug lines and replies share the same UART. <code>AT+SYNCTIME=now</code> sends the browser's current Unix time; firmware holds it fixed until changed.</div>
+        </section>
+      </aside>
+    </section>
+    <footer class="footer"><span>FIELDLINK CONSOLE <span aria-hidden="true">/</span> WEB SERIAL</span><a href="INSTRUCTIONS_POSTMAN_PORT.md">AT command reference</a></footer>
+  </main>
+  <script>
+    const connectButton = document.querySelector('#connectButton');
+    const connectLabel = document.querySelector('#connectLabel');
+    const connection = document.querySelector('#connection');
+    const connectionText = document.querySelector('#connectionText');
+    const sessionLabel = document.querySelector('#sessionLabel');
+    const sendButton = document.querySelector('#sendButton');
+    const commandInput = document.querySelector('#commandInput');
+    const commandForm = document.querySelector('#commandForm');
+    const lineEnding = document.querySelector('#lineEnding');
+    const baudRate = document.querySelector('#baudRate');
+    const log = document.querySelector('#log');
+    const emptyMessage = document.querySelector('#emptyMessage');
+    const lineCount = document.querySelector('#lineCount');
+    const autoScroll = document.querySelector('#autoScroll');
+    let port = null;
+    let reader = null;
+    let writer = null;
+    let reading = false;
+    let totalLines = 0;
+    let receiveBuffer = '';
+    const textDecoder = new TextDecoder();
+
+    function addLog(kind, text, isError = false) {
+      emptyMessage?.remove();
+      const row = document.createElement('div');
+      row.className = `log-row${isError ? ' error' : ''}`;
+      const time = document.createElement('span');
+      time.className = 'log-time';
+      time.textContent = new Date().toLocaleTimeString([], { hour12: false });
+      const label = document.createElement('span');
+      label.className = `log-kind ${kind.toLowerCase()}`;
+      label.textContent = kind;
+      const content = document.createElement('span');
+      content.className = 'log-text';
+      content.textContent = text;
+      row.append(time, label, content);
+      log.append(row);
+      totalLines += 1;
+      lineCount.textContent = `${totalLines} ${totalLines === 1 ? 'LINE' : 'LINES'}`;
+      if (autoScroll.checked) log.scrollTop = log.scrollHeight;
+    }
+
+    function setConnected(isConnected) {
+      connection.classList.toggle('connected', isConnected);
+      connectionText.textContent = isConnected ? 'Connected' : 'Disconnected';
+      connectLabel.textContent = isConnected ? 'Disconnect' : 'Connect device';
+      sendButton.disabled = !isConnected;
+      baudRate.disabled = isConnected;
+      sessionLabel.textContent = isConnected ? `PORT OPEN / ${baudRate.value} BAUD` : 'NO ACTIVE SESSION';
+    }
+
+    async function readLoop() {
+      reading = true;
+      try {
+        while (port?.readable && reading) {
+          reader = port.readable.getReader();
+          try {
+            while (reading) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value) {
+                receiveBuffer += textDecoder.decode(value, { stream: true });
+                const lines = receiveBuffer.split(/\r\n|\n|\r/);
+                receiveBuffer = lines.pop() ?? '';
+                for (const line of lines) addLog('RX', line);
+              }
+            }
+          } finally {
+            reader.releaseLock();
+            reader = null;
+          }
+        }
+      } catch (error) {
+        if (reading) addLog('SYS', `Serial read failed: ${error.message}`, true);
+      } finally {
+        if (receiveBuffer.length > 0) {
+          addLog('RX', receiveBuffer);
+          receiveBuffer = '';
+        }
+        reading = false;
+      }
+    }
+
+    async function disconnect() {
+      reading = false;
+      if (reader) await reader.cancel().catch(() => {});
+      if (writer) {
+        writer.releaseLock();
+        writer = null;
+      }
+      if (port) {
+        await port.close().catch(() => {});
+        port = null;
+      }
+      setConnected(false);
+      addLog('SYS', 'Serial device disconnected');
+    }
+
+    async function connect() {
+      if (!('serial' in navigator)) {
+        addLog('SYS', 'Web Serial is unavailable. Open this page in Chrome or Edge over HTTPS or localhost.', true);
+        return;
+      }
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: Number(baudRate.value), dataBits: 8, stopBits: 1, parity: 'none' });
+        setConnected(true);
+        addLog('SYS', `Connected at ${baudRate.value} baud, 8-N-1`);
+        readLoop();
+      } catch (error) {
+        if (error.name !== 'NotFoundError') addLog('SYS', `Connection failed: ${error.message}`, true);
+        if (port && !port.readable) port = null;
+      }
+    }
+
+    async function sendCommand(command) {
+      const cleaned = command.trim();
+      if (!cleaned || !port?.writable) return;
+      try {
+        const commandToSend = /^AT\+SYNCTIME=NOW$/i.test(cleaned)
+          ? `AT+SYNCTIME=${Math.floor(Date.now() / 1000)}`
+          : cleaned;
+        writer = port.writable.getWriter();
+        const endings = { crlf: '\r\n', lf: '\n', cr: '\r', none: '' };
+        const payload = new TextEncoder().encode(commandToSend + endings[lineEnding.value]);
+        await writer.write(payload);
+        writer.releaseLock();
+        writer = null;
+        addLog('TX', commandToSend);
+        commandInput.value = '';
+        commandInput.focus();
+      } catch (error) {
+        if (writer) {
+          writer.releaseLock();
+          writer = null;
+        }
+        addLog('SYS', `Write failed: ${error.message}`, true);
+      }
+    }
+
+    connectButton.addEventListener('click', () => port ? disconnect() : connect());
+    commandForm.addEventListener('submit', event => {
+      event.preventDefault();
+      sendCommand(commandInput.value);
+    });
+    document.querySelectorAll('.preset').forEach(button => {
+      button.addEventListener('click', () => {
+        commandInput.value = button.dataset.command;
+        commandInput.focus();
+      });
+    });
+    document.querySelector('#clearButton').addEventListener('click', () => {
+      log.replaceChildren();
+      totalLines = 0;
+      lineCount.textContent = '0 LINES';
+      log.append(emptyMessage);
+    });
+    document.querySelector('#copyButton').addEventListener('click', async () => {
+      const text = [...log.querySelectorAll('.log-row')].map(row => {
+        const [time, kind, ...message] = row.children;
+        return `${time.textContent} ${kind.textContent} ${message.map(part => part.textContent).join(' ')}`;
+      }).join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        addLog('SYS', 'Monitor output copied to clipboard');
+      } catch (error) {
+        addLog('SYS', `Clipboard unavailable: ${error.message}`, true);
+      }
+    });
+    navigator.serial?.addEventListener('disconnect', event => {
+      if (event.target === port) disconnect();
+    });
+  </script>
+</body>
+</html>
