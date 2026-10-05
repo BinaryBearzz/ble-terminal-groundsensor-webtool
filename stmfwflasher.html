@@ -58,7 +58,7 @@
   const STATUS_OK = 0x80;
 
   // STM32F1 registers
-  const DHCSR = 0xE000EDF0, AIRCR = 0xE000ED0C;
+  const DHCSR = 0xE000EDF0, AIRCR = 0xE000ED0C, DEMCR = 0xE000EDFC, DFSR = 0xE000ED30;
   const DBGMCU_IDCODE = 0xE0042000, FLASH_SIZE_REG = 0x1FFFF7E0;
   const FLASH_BASE = 0x08000000;
   const FPEC = 0x40022000;
@@ -67,6 +67,12 @@
   const SR_BSY = 0x01, SR_ERR = 0x14; // PGERR | WRPRTERR
   const F1_IDS = [0x410, 0x412, 0x414, 0x418, 0x420, 0x428, 0x430];
   const TWO_KB_PAGE_IDS = [0x414, 0x418, 0x430];
+
+  // Thumb loader: r0=src, r1=dst, r2=จำนวน halfword; เขียนทีละ 16 บิตด้วย PG แล้ว BKPT (F1 ไม่รับ word write)
+  const LOADER = [0x4B08, 0x2401, 0x611C, 0x2A00, 0xD008, 0x8804, 0x800C, 0x68DD, 0x07ED, 0xD4FC,
+                  0x3002, 0x3102, 0x3A01, 0xE7F4, 0x2400, 0x611C, 0xBE00, 0xBF00, 0x2000, 0x4002];
+  const SRAM_CODE = 0x20000000, SRAM_BUF = 0x20000100, SRAM_SP = 0x20002000;
+  const BUF_SIZE = 1024;
 
   let dev, epIn, epOut;
 
@@ -105,6 +111,27 @@
   }
   async function writeU32(addr, v) {
     await writeMem(addr, new Uint8Array(le32(v)));
+  }
+  async function writeReg(reg, v) {
+    await xfer([DEBUG, 0x34, reg, ...le32(v)], 2);
+  }
+
+  // ให้ core รัน loader ใน SRAM เขียน chunk ลง Flash แล้วรอจนถึง BKPT
+  async function programChunk(addr, chunk) {
+    await writeMem(SRAM_BUF, chunk);
+    await writeReg(0, SRAM_BUF);
+    await writeReg(1, addr);
+    await writeReg(2, chunk.length / 2);
+    await writeReg(13, SRAM_SP);
+    await writeReg(16, 0x01000000); // xPSR (Thumb)
+    await writeReg(15, SRAM_CODE);
+    await writeU32(DFSR, 0x1F);
+    await writeU32(DHCSR, 0xA05F0001);
+    for (let i = 0; i < 400; i++) {
+      if ((await readU32(DFSR)) & 0x2) return; // BKPT
+      await sleep(2);
+    }
+    throw new Error('loader ไม่จบ (timeout)');
   }
 
   async function openStLink() {
@@ -166,9 +193,12 @@
     log(`DEV_ID ${hex(id)}, Flash ${flashKB} KB, page ${pageSize} B`);
     if (firmware.length > flashKB * 1024) throw new Error('ไฟล์ใหญ่เกิน Flash ของชิป');
 
-    // Halt core ก่อนแตะ Flash
+    // Reset แล้ว halt ที่ reset vector เพื่อไม่ให้แอปเดิมรัน/เกิด interrupt ระหว่างเขียน
     await writeU32(DHCSR, 0xA05F0003);
-    await sleep(20);
+    await writeU32(DEMCR, 0x01000001);
+    await writeU32(AIRCR, 0x05FA0004);
+    await sleep(100);
+    if (!((await readU32(DHCSR)) & 0x20000)) throw new Error('halt core ไม่สำเร็จ');
 
     // เติม 0xFF ให้ยาวเป็นพหุคูณของ 4
     const data = new Uint8Array(Math.ceil(firmware.length / 4) * 4).fill(0xFF);
@@ -187,16 +217,19 @@
     await writeU32(FLASH_CR, 0);
 
     log('กำลังเขียน Flash...');
-    const CHUNK = 256;
-    await writeU32(FLASH_CR, CR_PG);
+    const loaderBytes = new Uint8Array(LOADER.length * 2);
+    LOADER.forEach((h, i) => { loaderBytes[2 * i] = h & 0xFF; loaderBytes[2 * i + 1] = h >> 8; });
+    await writeMem(SRAM_CODE, loaderBytes);
+
     let lastPct = -1;
-    for (let off = 0; off < data.length; off += CHUNK) {
-      const chunk = data.subarray(off, Math.min(off + CHUNK, data.length));
+    for (let off = 0; off < data.length; off += BUF_SIZE) {
+      const chunk = data.subarray(off, Math.min(off + BUF_SIZE, data.length));
       if (!chunk.every(b => b === 0xFF)) {
-        await writeMem(FLASH_BASE + off, chunk);
-        await waitIdle();
+        await programChunk(FLASH_BASE + off, chunk);
+        const sr = await readU32(FLASH_SR);
+        if (sr & SR_ERR) throw new Error(`Flash error SR=${hex(sr)} (เช็ก write protection)`);
       }
-      const pct = Math.round(Math.min(off + CHUNK, data.length) * 100 / data.length);
+      const pct = Math.round(Math.min(off + BUF_SIZE, data.length) * 100 / data.length);
       bar.value = pct;
       if (pct >= lastPct + 10) { log(`Write ${pct}%`); lastPct = pct; }
     }
@@ -219,6 +252,7 @@
   }
 
   async function resetAndRun() {
+    await writeU32(DEMCR, 0x01000000); // ไม่ halt ที่ reset vector
     await writeU32(AIRCR, 0x05FA0004); // SYSRESETREQ
     await sleep(100);
     await writeU32(DHCSR, 0xA05F0000); // เคลียร์ halt ให้แอปรัน
