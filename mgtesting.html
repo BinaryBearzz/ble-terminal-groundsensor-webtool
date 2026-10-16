@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AsgardMQTTv2 – MQTT over WS Test Client</title>
+    <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #22263a;
+            --border: #2e3248;
+            --accent: #5c6bc0;
+            --accent-hover: #7986cb;
+            --success: #26a69a;
+            --warn: #ffa726;
+            --danger: #ef5350;
+            --text: #e8eaf6;
+            --muted: #7b8099;
+            --radius: 8px;
+            --font: 'Segoe UI', system-ui, sans-serif;
+            --mono: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 14px;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        h2 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 6px;
+        }
+
+        /* ── Layout ── */
+        #app {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            grid-template-rows: auto 1fr;
+            min-height: 100vh;
+        }
+
+        #topbar {
+            grid-column: 1/-1;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        #sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        #main {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #status-bar {
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+            padding: 6px 16px;
+            font-size: 12px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        /* ── Form controls ── */
+        label {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 3px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 7px 10px;
+            font-family: var(--font);
+            font-size: 13px;
+            transition: border-color .15s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        textarea {
+            resize: vertical;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        button {
+            border: none;
+            border-radius: var(--radius);
+            padding: 7px 14px;
+            font-family: var(--font);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: filter .15s;
+        }
+
+        button:hover {
+            filter: brightness(1.15);
+        }
+
+        button:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+            filter: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .btn-warning {
+            background: var(--warn);
+            color: #111;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .row>* {
+            flex: 1;
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        /* ── Status badge ── */
+        .badge {
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-connected {
+            background: #1b5e2040;
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .badge-disconnected {
+            background: #b71c1c30;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .badge-connecting {
+            background: #e6510030;
+            color: var(--warn);
+            border: 1px solid var(--warn);
+        }
+
+        /* ── Connection card ── */
+        #conn-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+        }
+
+        /* ── API tabs ── */
+        #tabs-wrap {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px 0;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: var(--surface2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius) var(--radius) 0 0;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text);
+        }
+
+        .tab-btn.active {
+            background: var(--surface);
+            color: var(--text);
+            border-bottom-color: var(--surface);
+        }
+
+        #tab-content {
+            flex: 1;
+            background: var(--surface);
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ── API action card ── */
+        .api-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .api-card h2 {
+            margin-bottom: 8px;
+        }
+
+        .routing-key {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--accent);
+            background: #1a1d2760;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        /* ── Log pane ── */
+        #log-wrap {
+            border-top: 1px solid var(--border);
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            height: 240px;
+            min-height: 140px;
+            max-height: 70vh;
+            resize: vertical;
+            overflow: auto;
+            flex: none;
+        }
+
+        #log-resizer-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 120px;
+            height: 12px;
+            cursor: ns-resize;
+            z-index: 2;
+            background: linear-gradient(90deg, var(--accent), transparent);
+            opacity: 0.45;
+        }
+
+        #log-resizer-top:hover {
+            opacity: 0.85;
+        }
+
+        #log-header {
+            padding: 6px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
+        }
+
+        #log-header span {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        #log {
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 8px 14px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #ffffff08;
+            line-height: 1.5;
+        }
+
+        .log-entry.pub {
+            color: #80cbc4;
+        }
+
+        .log-entry.sub {
+            color: #ce93d8;
+        }
+
+        .log-entry.sys {
+            color: var(--warn);
+        }
+
+        .log-entry.err {
+            color: var(--danger);
+        }
+
+        .log-entry .ts {
+            color: var(--muted);
+            margin-right: 6px;
+        }
+
+        .log-entry .dir {
+            margin-right: 6px;
+            font-weight: 600;
+        }
+
+        /* ── Sub list ── */
+        #sub-list {
+            font-size: 12px;
+        }
+
+        #sub-list div {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            gap: 8px;
+        }
+
+        #sub-list div span {
+            font-family: var(--mono);
+            word-break: break-all;
+            color: var(--accent);
+        }
+
+        /* ── Tooltip ── */
+        [data-tip] {
+            position: relative;
+            cursor: help;
+        }
+
+        [data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #222;
+            color: #eee;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 99;
+            pointer-events: none;
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- ── Top bar ── -->
+        <div id="topbar">
+            <h1>🐇 AsgardMQTTv2</h1>
+            <span style="color:var(--muted);">MQTT over WebSocket test client</span>
+            <span id="badge" class="badge badge-disconnected">Disconnected</span>
+        </div>
+
+        <!-- ── Sidebar ── -->
+        <div id="sidebar">
+
+            <!-- Device Credentials -->
+            <div id="conn-card">
+                <h2>Device Credentials</h2>
+                <div class="field">
+                    <label>ThingIdentifier</label>
+                    <input id="thing-id" type="text" placeholder="e.g. 11582747389750711" value="11582747389750711" />
+                </div>
+                <div class="field">
+                    <label>ThingSecret</label>
+                    <input id="thing-secret" type="text" placeholder="e.g. 129859823897612" value="129859823897612" />
+                </div>
+                <div class="field">
+                    <label>ThingToken</label>
+                    <input id="thing-token" type="text" placeholder="from auth response" value="" />
+                </div>
+            </div>
+
+            <!-- Quick Publish & Subscribe Presets -->
+            <!-- <div>
+                <h3>Quick Publish & Subscribe</h3>
+                <div class="field">
+                    <label>API Preset</label>
+                    <select id="preset-api">
+                        <option value="">-- Select API --</option>
+                        <optgroup label="Authentication">
+                            <option value="auth-json">Auth (JSON)</option>
+                        </optgroup>
+                        <optgroup label="Report">
+                            <option value="report-json">Report (JSON)</option>
+                            <option value="report-pta">Report (PTA)</option>
+                        <optgroup label="Heartbeat">
+                            <option value="hb-json">Heartbeat (JSON)</option>
+                        </optgroup>
+                        <optgroup label="Server Config">
+                            <option value="cfg-json">Config (JSON)</option>
+                        </optgroup>
+                        <optgroup label="Delta">
+                            <option value="delta-json">Delta (JSON)</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="row">
+                    <button class="btn-success btn-sm" onclick="publishPreset()">📤 Publish</button>
+                    <button class="btn-primary btn-sm" onclick="applyPresetAndSub()">📥 Subscribe</button>
+                </div>
+            </div> -->
+
+            <!-- Connection config -->
+            <div id="conn-card">
+                <h2>MQTT Connection</h2>
+
+                <div class="field">
+                    <label>Protocol</label>
+                    <select id="protocol">
+                        <option value="ws">ws:// (plain)</option>
+                        <option value="wss">wss:// (TLS)</option>
+                    </select>
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label>Host / Endpoint</label>
+                        <input id="host" type="text" value="mg.maohnnn.com" />
+                    </div>
+                    <div class="field" style="max-width:90px">
+                        <label>Port</label>
+                        <input id="port" type="number" value="443" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Path</label>
+                    <input id="path" type="text" value="/ws" />
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label>Username</label>
+                        <input id="username" type="text" value="" placeholder="leave blank use ThingIdentifier" />
+                    </div>
+
+                    <!-- <div class="field">
+                        <label>Password</label>
+                        <input id="password" type="text" value="" placeholder="leave blank use ThingSecret"/>
+                    </div> -->
+                </div>
+                <div class="row">
+                    <!-- <div class="field">
+                        <label>Username</label>
+                        <input id="username" type="text" value="" placeholder="leave blank use ThingIdentifier"/>
+                    </div> -->
+
+                    <div class="field">
+                        <label>Password</label>
+                        <input id="password" type="text" value="" placeholder="leave blank use ThingSecret" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Client ID</label>
+                    <input id="clientId" type="text" value="" placeholder="auto-generate" />
+                </div>
+
+                <div class="row">
+                    <button class="btn-success" id="btnConnect" onclick="connect()">Connect</button>
+                    <button class="btn-danger" id="btnDisconnect" onclick="disconnect()" disabled>Disconnect</button>
+                </div>
+            </div>
+
+            <!-- Manual subscribe -->
+            <div>
+                <h3>Subscribe Topic</h3>
+                <div class="field">
+                    <label>Topic (MQTT format, use / )</label>
+                    <input id="subTopic" type="text" placeholder="api/v2/thing/+/heartbeat" />
+                </div>
+                <button class="btn-primary" style="width:100%" onclick="subscribeTopic()">Subscribe</button>
+            </div>
+
+            <!-- Active subscriptions -->
+            <div>
+                <h3>Active Subscriptions</h3>
+                <div id="sub-list">
+                    <div style="color:var(--muted);padding:4px 0;font-size:12px">None</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ── Main content ── -->
+        <div id="main">
+            <div id="status-bar">
+                <span>Broker: <strong id="sb-broker">—</strong></span>
+                <span>Client ID: <strong id="sb-client">—</strong></span>
+                <span>Messages published: <strong id="sb-pub">0</strong></span>
+                <span>Messages received: <strong id="sb-rec">0</strong></span>
+            </div>
+
+            <!-- Tabs -->
+            <div id="tabs-wrap">
+                <button class="tab-btn" onclick="switchTab('authen')">Authen</button>
+                <button class="tab-btn active" onclick="switchTab('report')">Report</button>
+                <button class="tab-btn" onclick="switchTab('delta')">Delta</button>
+                <button class="tab-btn" onclick="switchTab('config')">Config</button>
+                <button class="tab-btn" onclick="switchTab('clientconfig')">ClientConfig</button>
+                <button class="tab-btn" onclick="switchTab('heartbeat')">Heartbeat</button>
+                <button class="tab-btn" onclick="switchTab('synctime')">SyncTime</button>
+                <button class="tab-btn" onclick="switchTab('firmwareinfo')">FW Info</button>
+                <!-- <button class="tab-btn" onclick="switchTab('firmwareota')">FW OTA</button> -->
+                <button class="tab-btn" onclick="switchTab('firmwaredl')">FW Download</button>
+                <button class="tab-btn" onclick="switchTab('fotaprogress')">FOTA Progress</button>
+                <!-- <button class="tab-btn" onclick="switchTab('register')">Register</button> -->
+                <button class="tab-btn" onclick="switchTab('checklist')">Checklist</button>
+                <button class="tab-btn" onclick="switchTab('custom')">Custom Pub</button>
+                <button class="tab-btn" onclick="switchTab('centric')">Centric</button>
+            </div>
+
+            <div id="tab-content">
+
+                <!-- ── REPORT ── -->
+                <div class="tab-panel active" id="tab-report">
+                    <div class="api-card">
+                        <h2>📊 Report <span class="routing-key">api/v2/thing/{ThingToken}/report/persist/{ext}</span>
+                        </h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>route.report.v2.q</code>
+                        </p>
+                        <div class="row">
+                            <div class="field"><label>Extra path (optional)</label><input id="r-ext" type="text"
+                                    placeholder="e.g. pta/?sensor=$SensorKey  or ?id=$msg_id" /></div>
+                        </div>
+                        <div class="field"><label>Payload (JSON)</label><textarea id="r-payload" rows="6">{
+  "Temperature": 36.5,
+  "Humidity": 60,
+  "Timestamp": 1700000000
+}</textarea></div>
+                        <div id="report-interval-status" style="font-size:12px;color:var(--muted);margin-bottom:8px">
+                            Auto:
+                            Off</div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubReport()">Publish Once</button>
+                            <button class="btn-secondary btn-sm" onclick="subReport()">Subscribe response</button>
+                            <button class="btn-success" id="btnReportStart" onclick="startReportInterval()">Auto every
+                                5s</button>
+                            <button class="btn-danger" id="btnReportStop" onclick="stopReportInterval()" disabled>Stop
+                                Auto</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── DELTA ── -->
+                <div class="tab-panel" id="tab-delta">
+                    <div class="api-card">
+                        <h2>🔄 Delta <span class="routing-key">api/v2/thing/{ThingToken}/delta/req</span></h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue: <code>delta.v2.q</code>
+                        </p>
+                        <div class="field"><label>Extra path (optional)</label><input id="d-ext" type="text"
+                                placeholder="e.g. ?sensor=$SENSOR_KEY" /></div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubDelta()">Publish</button>
+                            <button class="btn-secondary btn-sm" onclick="subDeltaResp()">Subscribe response</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── AUTHEN ── -->
+                <div class="tab-panel" id="tab-authen">
+                    <div class="api-card">
+                        <h2>🔐 Authen <span
+                                class="routing-key">api/v2/thing/{ThingIdentifier}/{ThingSecret}/auth/req</span>
+                        </h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>authen.v2.q</code>
+                        </p>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubAuthen()">Publish</button>
+                            <button class="btn-secondary btn-sm" onclick="subAuthenResp()">Subscribe
+                                response</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── CONFIG ── -->
+                <div class="tab-panel" id="tab-config">
+                    <div class="api-card">
+                        <h2>⚙️ Server Config <span class="routing-key">api/v2/thing/{ThingToken}/config/req</span>
+                        </h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>config.v2.q</code>
+                        </p>
+                        <div class="field"><label>Ext ConfigKey</label><input id="c-ext" type="text"
+                                placeholder="e.g. ?config=$CONFIG_KEY" /></div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubConfig()">Publish</button>
+                            <button class="btn-secondary btn-sm" onclick="subConfigResp()">Subscribe
+                                response</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- ── CLIENT CONFIG ── -->
+                <div class="tab-panel" id="tab-clientconfig">
+                    <div class="api-card">
+                        <h2>⚙️ Client Config <span class="routing-key">api/v2/thing/{ThingToken}/config/persist</span>
+                        </h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>client.v2.q</code>
+                        </p>
+                        <div class="field"><label>Ext Client to Get Client Config</label><input id="cc-ext" type="text"
+                                placeholder="e.g. req or leave it blank for save client config" /></div>
+                        <div class="field"><label>Payload (JSON)</label><textarea id="cc-payload" rows="6">{
+  "Delay": 1500
+}</textarea></div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubClientConfig()">Publish</button>
+                            <button class="btn-secondary btn-sm" onclick="subClientConfigResp()">Subscribe
+                                response</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── HEARTBEAT ── -->
+                <div class="tab-panel" id="tab-heartbeat">
+                    <div class="api-card">
+                        <h2>💓 Heartbeat <span class="routing-key">api/v2/thing/{ThingToken}/heartbeat</span></h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>heartbeat.v1.q</code>
+                        </p>
+                        <div id="hb-interval-status" style="font-size:12px;color:var(--muted);margin-bottom:8px">
+                            Auto:
+                            Off</div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubHeartbeat()">Publish Once</button>
+                            <button class="btn-secondary btn-sm" onclick="subHeartbeat()">Subscribe response</button>
+                            <button class="btn-success" id="btnHbStart" onclick="startHbInterval()">Auto every
+                                5s</button>
+                            <button class="btn-danger" id="btnHbStop" onclick="stopHbInterval()" disabled>Stop
+                                Auto</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── SYNCTIME ── -->
+                <div class="tab-panel" id="tab-synctime">
+                    <div class="api-card">
+                        <h2>🕐 SyncTime <span class="routing-key">api/v2/server/dateTime/req</span></h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>Server.Utils.q</code>
+                        </p>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubSynctime()">Publish</button>
+                            <button class="btn-secondary btn-sm" onclick="subSynctimeResp()">Subscribe
+                                response</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── FIRMWARE INFO ── -->
+                <div class="tab-panel" id="tab-firmwareinfo">
+                    <div class="api-card">
+                        <h2>📦 Firmware Info <span class="routing-key">api/v2/thing/{ThingToken}/firmwareinfo/req</span>
+                        </h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>firmwareInfo.v2.q</code>
+                        </p>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubFirmwareInfo()">Publish</button>
+                            <button class="btn-secondary btn-sm" onclick="subFirmwareInfoResp()">Subscribe
+                                response</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── FIRMWARE OTA ── -->
+                <div class="tab-panel" id="tab-firmwareota">
+                    <div class="api-card">
+                        <h2>🚀 Firmware Start OTA <span
+                                class="routing-key">api/v2/thing/{ThingToken}/firmwarestartota/req</span></h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>firmware.ota.v2.q</code>
+                        </p>
+                        <button class="btn-primary" onclick="pubFirmwareOTA()">Publish</button>
+                    </div>
+                </div>
+
+                <!-- ── FIRMWARE DOWNLOAD ── -->
+                <div class="tab-panel" id="tab-firmwaredl">
+                    <div class="api-card">
+                        <h2>⬇️ Firmware Download <span
+                                class="routing-key">api/v2/thing/{ThingToken}/firmwaredownload/req/{indexFile}/?fileSize={fileSize}</span>
+                        </h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>firmwareDownload.v2.q</code>
+                        </p>
+                        <div class="row">
+                            <div class="field"><label>indexFile</label><input id="fdl-index" type="number" value="0" />
+                            </div>
+                            <div class="field"><label>Firmware Size</label><input id="fdl-fwsize" type="number"
+                                    value="128" /></div>
+                        </div>
+                        <div class="row">
+                            <button type="button" class="btn-primary"
+                                onclick="pubFirmwareDownload(); return false;">Publish</button>
+                            <button type="button" class="btn-secondary btn-sm"
+                                onclick="subFirmwareDownloadResp(); return false;">Subscribe
+                                response</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── FOTA PROGRESS ── -->
+                <div class="tab-panel" id="tab-fotaprogress">
+                    <div class="api-card">
+                        <h2>📈 FOTA Update Progress <span
+                                class="routing-key">api/v2/thing/{ThingToken}/fotaupdateprogress/req/{state}</span>
+                        </h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>updateProgress.v2.q</code>
+                        </p>
+                        <div class="field">
+                            <label
+                                data-tip='Error: {"errordescription":""} | Success: {"description":"","Version":""}'>Payload
+                                (JSON)</label>
+                            <textarea id="fota-payload" rows="6" placeholder='Error case: {"errordescription":""}
+Success case: {"description":"","Version":""}'></textarea>
+                            <div class="row" style="margin-top:8px;">
+                                <button class="btn-secondary btn-sm" onclick="setFotaPayloadTemplate('success')">Use
+                                    Success Template</button>
+                                <button class="btn-secondary btn-sm" onclick="setFotaPayloadTemplate('error')">Use Error
+                                    Template</button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="field"><label>State</label>
+                                <select id="fp-state">
+                                    <option value="INITIALIZE">INITIALIZE</option>
+                                    <option value="VERIFIED">VERIFIED</option>
+                                    <option value="DOWNLOADING">DOWNLOADING</option>
+                                    <option value="DOWNLOADED">DOWNLOADED</option>
+                                    <option value="UPDATED">UPDATED</option>
+                                    <option value="FAILED">FAILED</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubFotaProgress()">Publish</button>
+                            <!-- <button class="btn-secondary btn-sm" onclick="subFotaProgressResp()">Subscribe
+                                response</button> -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── REGISTER ── -->
+                <div class="tab-panel" id="tab-register">
+                    <div class="api-card">
+                        <h2>📝 Register Thing <span class="routing-key">api/v2/thing/register/req</span></h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:10px">Queue:
+                            <code>register.v2.q</code>
+                        </p>
+                        <div class="row">
+                            <div class="field"><label>ThingIdentifier</label><input id="reg-id" type="text"
+                                    placeholder="e.g. 8966032715813955168" /></div>
+                            <div class="field"><label>ThingSecret</label><input id="reg-secret" type="text"
+                                    placeholder="e.g. 657944578802680" /></div>
+                        </div>
+                        <div class="row">
+                            <div class="field"><label>ThingName</label><input id="reg-name" type="text"
+                                    placeholder="e.g. MyDevice" /></div>
+                            <div class="field"><label>SecretCode</label><input id="reg-code" type="text"
+                                    placeholder="optional" /></div>
+                        </div>
+                        <div class="field"><label>IMEI (optional)</label><input id="reg-imei" type="text" /></div>
+                        <div class="field"><label>CustomDetails (JSON object, optional)</label><textarea id="reg-custom"
+                                rows="3">{}</textarea></div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubRegister()">Publish</button>
+                            <button class="btn-secondary btn-sm" onclick="subRegisterResp()">Subscribe
+                                response</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── SUBSCRIBE CHECKLIST ── -->
+                <div class="tab-panel" id="tab-checklist">
+                    <div style="max-width:900px;margin:0 auto">
+                        <h2 style="margin-bottom:14px">📋 Subscribe Response Topics Checklist</h2>
+                        <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Reference: <a
+                                href="https://mg.maohnnn.com/learningcenter/api-document/mqtt-apis-v2#delta"
+                                target="_blank" style="color:var(--accent)">mg.maohnnn.com MQTT APIs</a></p>
+
+                        <!-- Authentication -->
+                        <div class="api-card">
+                            <h3>🔐 Authentication Response</h3>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+                                <div>
+                                    <label style="color:#80cbc4">JSON Format</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{id}/{secret}/auth/resp</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('auth-json')">Sub</button>
+                                </div>
+                                <div>
+                                    <label style="color:#ce93d8">Plain Text Format</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{id}/{secret}/auth/resp/pta</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('auth-pta')">Sub</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Report -->
+                        <div class="api-card">
+                            <h3>📊 Report Response</h3>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+                                <div>
+                                    <label style="color:#80cbc4">JSON Format</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/report/resp/+</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('report-json')">Sub</button>
+                                </div>
+                                <div>
+                                    <label style="color:#ce93d8">Plain Text Format</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/report/resp/pta/+</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('report-pta')">Sub</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Heartbeat -->
+                        <div class="api-card">
+                            <h3>💓 Heartbeat Response</h3>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+                                <div>
+                                    <label style="color:#80cbc4">JSON Format</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/heartbeat/resp</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('hb-json')">Sub</button>
+                                </div>
+                                <div>
+                                    <label style="color:#ce93d8">Plain Text Format</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/heartbeat/resp/pta</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('hb-pta')">Sub</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Server Config -->
+                        <div class="api-card">
+                            <h3>⚙️ Server Config Response</h3>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+                                <div>
+                                    <label style="color:#80cbc4">JSON Format (multi)</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/config/resp</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('cfg-json')">Sub</button>
+                                </div>
+                                <div>
+                                    <label style="color:#ce93d8">Plain Text Format (multi)</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/config/resp/pta/+</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('cfg-pta')">Sub</button>
+                                </div>
+                            </div>
+                            <div style="margin-top:10px;font-size:12px;color:var(--muted)">Single config key: add
+                                <code>?config=$KEY</code> to the topic
+                            </div>
+                        </div>
+
+                        <!-- Delta -->
+                        <div class="api-card">
+                            <h3>🔄 Delta (Thing Shadow) Response</h3>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+                                <div>
+                                    <label style="color:#80cbc4">JSON Format (multi sensor)</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/delta/resp</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('delta-json')">Sub</button>
+                                </div>
+                                <div>
+                                    <label style="color:#ce93d8">Plain Text Format (multi)</label>
+                                    <div
+                                        style="background:var(--bg);padding:8px;border-radius:4px;font-family:var(--mono);word-break:break-all">
+                                        api/v2/thing/{token}/delta/resp/pta/+</div>
+                                    <button class="btn-secondary btn-sm" style="width:100%;margin-top:6px"
+                                        onclick="subScenario('delta-pta')">Sub</button>
+                                </div>
+                            </div>
+                            <div style="margin-top:10px;font-size:12px;color:var(--muted)">Single sensor: add
+                                <code>?sensor=$KEY</code> to the topic
+                            </div>
+                        </div>
+
+                        <div
+                            style="padding:12px;background:var(--surface2);border-radius:var(--radius);margin-top:14px;font-size:12px;color:var(--muted)">
+                            <strong>💡 Tip:</strong> Click <strong>Sub</strong> to auto-populate the subscription
+                            topic
+                            in the Custom Pub tab, then subscribe from there.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── CUSTOM PUB ── -->
+                <div class="tab-panel" id="tab-custom">
+                    <div class="api-card">
+                        <h2>✏️ Custom Publish / Subscribe</h2>
+                        <div class="row">
+                            <div class="field"><label>Topic (MQTT, use /)</label><input id="cp-topic" type="text"
+                                    placeholder="api/v2/thing/THING001/heartbeat" /></div>
+                            <div class="field" style="max-width:120px"><label>QoS</label>
+                                <select id="cp-qos">
+                                    <option value="0">0 – At most once</option>
+                                    <option value="1">1 – At least once</option>
+                                    <option value="2">2 – Exactly once</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field"><label>Payload (text or JSON)</label><textarea id="cp-payload"
+                                rows="6">{"hello":"world"}</textarea></div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubCustom()">Publish</button>
+                            <button class="btn-secondary" onclick="subCustom()">Subscribe topic</button>
+                            <button class="btn-warning btn-sm" onclick="subAllAsgard()">Sub All AsgardV2</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- ── CUSTOM PUB ── -->
+                <div class="tab-panel" id="tab-centric">
+                    <div class="api-card">
+                        <h2>✏️ Centric Publish / Subscribe <span class="routing-key">api/v2/things/{id}/{secret}/server/destination/request</span></h2>
+                        <div class="field"><label>Payload (text or JSON)</label><textarea id="cp-payload"
+                                rows="6">{"hello":"world"}</textarea></div>
+                        <div class="row">
+                            <button class="btn-primary" onclick="pubCentric()">Publish</button>
+                            <button class="btn-secondary" onclick="subCentric()">Subscribe topic</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /tab-content -->
+
+            <!-- ── Log pane ── -->
+            <div id="log-wrap">
+                <div id="log-resizer-top" title="Drag up/down to resize log"></div>
+                <div id="log-header">
+                    <span>Message Log</span>
+                    <div style="display:flex;gap:6px">
+                        <button class="btn-secondary btn-sm" onclick="toggleLogPause()" id="btnPause">⏸
+                            Pause</button>
+                        <button class="btn-secondary btn-sm" onclick="clearLog()">🗑 Clear</button>
+                        <button class="btn-secondary btn-sm" onclick="exportLog()">⬇ Export</button>
+                    </div>
+                </div>
+                <div id="log"></div>
+            </div>
+
+        </div><!-- /main -->
+    </div><!-- /app -->
+
+    <script>
+        // ──────────────────────────────────────────────────────────────────────────────
+        // State
+        // ──────────────────────────────────────────────────────────────────────────────
+        let client = null;
+        let pubCount = 0;
+        let recCount = 0;
+        let logPaused = false;
+        let hbTimer = null;
+        let reportTimer = null;
+        const activeSubs = new Set();
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Helpers
+        // ──────────────────────────────────────────────────────────────────────────────
+        function ts() {
+            return new Date().toTimeString().slice(0, 8);
+        }
+
+        function isProbablyBinaryData(value) {
+            if (value instanceof Uint8Array) return true;
+            if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) return true;
+            return false;
+        }
+
+        function formatPayloadForLog(payload) {
+            if (isProbablyBinaryData(payload)) {
+                const length = payload instanceof Uint8Array ? payload.byteLength : payload.byteLength;
+                return `<binary ${length} bytes>`;
+            }
+
+            if (typeof payload === 'object' && payload !== null) {
+                try {
+                    return JSON.stringify(payload);
+                } catch {
+                    return '[object]';
+                }
+            }
+
+            return String(payload);
+        }
+
+        function binaryToSafeTextPreview(binary, maxBytes = 256, maxChars = 300) {
+            const bytes = binary instanceof Uint8Array ? binary : new Uint8Array(binary);
+            const sliced = bytes.slice(0, maxBytes);
+
+            let decoded = '';
+            try {
+                if (typeof TextDecoder !== 'undefined') {
+                    decoded = new TextDecoder('utf-8', { fatal: false }).decode(sliced);
+                } else {
+                    decoded = Array.from(sliced).map(b => String.fromCharCode(b)).join('');
+                }
+            } catch {
+                decoded = Array.from(sliced).map(b => String.fromCharCode(b)).join('');
+            }
+
+            // Keep log safe and readable: replace control chars with visible dots.
+            const sanitized = decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '.');
+            return sanitized.slice(0, maxChars);
+        }
+
+        function addLog(dir, topic, payload) {
+            if (logPaused) return;
+            const el = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${dir}`;
+            const payStr = formatPayloadForLog(payload).slice(0, 300);
+
+            const tsSpan = document.createElement('span');
+            tsSpan.className = 'ts';
+            tsSpan.textContent = ts();
+
+            const dirSpan = document.createElement('span');
+            dirSpan.className = 'dir';
+            dirSpan.textContent = `[${dir.toUpperCase()}]`;
+
+            const topicSpan = document.createElement('span');
+            topicSpan.style.color = 'var(--accent)';
+            topicSpan.textContent = topic;
+
+            const arrowText = document.createTextNode(' -> ');
+
+            const payloadSpan = document.createElement('span');
+            payloadSpan.textContent = payStr;
+
+            entry.appendChild(tsSpan);
+            entry.appendChild(dirSpan);
+            entry.appendChild(topicSpan);
+            entry.appendChild(arrowText);
+            entry.appendChild(payloadSpan);
+            el.appendChild(entry);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function sysLog(msg, type = 'sys') {
+            if (logPaused) return;
+            const el = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+
+            const tsSpan = document.createElement('span');
+            tsSpan.className = 'ts';
+            tsSpan.textContent = ts();
+
+            const dirSpan = document.createElement('span');
+            dirSpan.className = 'dir';
+            dirSpan.textContent = '[SYS]';
+
+            // Security: use textContent (not innerHTML) so log messages containing
+            // untrusted data (e.g. server responses, topic names) cannot inject HTML/script.
+            const msgText = document.createTextNode(String(msg));
+
+            entry.appendChild(tsSpan);
+            entry.appendChild(dirSpan);
+            entry.appendChild(msgText);
+            el.appendChild(entry);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        /** Convert MQTT topic (/ sep) → RabbitMQ routing key (. sep) for display */
+        function mqttToRK(t) { return t.replaceAll('/', '.'); }
+
+        function setBadge(state) {
+            const b = document.getElementById('badge');
+            b.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+            b.className = `badge badge-${state}`;
+        }
+
+        function setConnected(yes) {
+            document.getElementById('btnConnect').disabled = yes;
+            document.getElementById('btnDisconnect').disabled = !yes;
+            setBadge(yes ? 'connected' : 'disconnected');
+        }
+
+        function updateStats() {
+            document.getElementById('sb-pub').textContent = pubCount;
+            document.getElementById('sb-rec').textContent = recCount;
+        }
+
+        function getJson(id) {
+            try { return JSON.parse(document.getElementById(id).value); }
+            catch { return document.getElementById(id).value; }
+            // catch { alert(`Invalid JSON in #${id}`); return null; }
+        }
+
+        function publish(topic, payload, qos = 1) {
+            if (!client || !client.connected) { sysLog('Not connected!', 'err'); return; }
+            const msg = typeof payload === 'string' ? payload : JSON.stringify(payload);
+            client.publish(topic, msg, { qos }, (err) => {
+                if (err) { sysLog(`Publish error: ${err.message}`, 'err'); return; }
+                pubCount++;
+                updateStats();
+                addLog('pub', topic, msg);
+            });
+        }
+
+        function decodeMessageText(message) {
+            if (message instanceof Uint8Array) {
+                try {
+                    return new TextDecoder('utf-8', { fatal: false }).decode(message);
+                } catch {
+                    return String(message);
+                }
+            }
+            return String(message);
+        }
+
+        function replaceThingToken(token) {
+            const nextToken = String(token || '').trim();
+            if (!nextToken) return false;
+            const tokenInput = document.getElementById('thing-token');
+            if (!tokenInput) return false;
+            tokenInput.value = nextToken;
+            return true;
+        }
+
+        function subscribe(topic, qos = 1) {
+            if (!client || !client.connected) { sysLog('Not connected!', 'err'); return; }
+            const cleanedTopic = topic.trim();
+            if (!cleanedTopic) { sysLog('Topic is required', 'err'); return; }
+            if (activeSubs.has(cleanedTopic)) { sysLog(`Already subscribed: ${cleanedTopic}`, 'sys'); return; }
+            client.subscribe(cleanedTopic, { qos }, (err) => {
+                if (err) { sysLog(`Subscribe error on ${cleanedTopic}: ${err.message}`, 'err'); return; }
+                activeSubs.add(cleanedTopic);
+                renderSubList();
+                sysLog(`Subscribed: ${cleanedTopic}`);
+            });
+        }
+
+        function unsubscribe(topic) {
+            if (!client) return;
+            client.unsubscribe(topic, {}, () => {
+                activeSubs.delete(topic);
+                renderSubList();
+                sysLog(`Unsubscribed: ${topic}`);
+            });
+        }
+
+        function renderSubList() {
+            const el = document.getElementById('sub-list');
+            if (activeSubs.size === 0) {
+                el.innerHTML = '<div style="color:var(--muted);padding:4px 0;font-size:12px">None</div>';
+                return;
+            }
+            el.innerHTML = '';
+            for (const t of activeSubs) {
+                const d = document.createElement('div');
+                d.innerHTML = `<span>${t}</span><button class="btn-danger btn-sm" onclick="unsubscribe('${t.replaceAll("'", "\\'")}')">✕</button>`;
+                el.appendChild(d);
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Connection
+        // ──────────────────────────────────────────────────────────────────────────────
+        function connect() {
+            const { thingId, thingSecret } = getCredentials();
+            const protocol = document.getElementById('protocol').value;
+            const host = document.getElementById('host').value.trim();
+            const port = parseInt(document.getElementById('port').value, 10);
+            const path = document.getElementById('path').value.trim() || '/ws';
+            let username = document.getElementById('username').value.trim();
+            if (username === "") {
+                username = thingId;
+                document.getElementById('username').value = thingId;
+            }
+            let password = document.getElementById('password').value;
+            if (password === "") {
+                password = thingSecret;
+                document.getElementById('password').value = thingSecret;
+            }
+            const clientId = document.getElementById('clientId').value.trim() ||
+                `asgard-test-${Math.random().toString(36).slice(2, 8)}`;
+
+            const brokerUrl = `${protocol}://${host}:${port}${path}`;
+            document.getElementById('sb-broker').textContent = brokerUrl;
+            document.getElementById('sb-client').textContent = clientId;
+            setBadge('connecting');
+            sysLog(`Connecting to ${brokerUrl} as ${clientId}…`);
+
+            const opts = {
+                clientId,
+                clean: true,
+                connectTimeout: 10000,
+                reconnectPeriod: 0,   // disable auto-reconnect; user controls it
+            };
+            if (username) { opts.username = username; opts.password = password; }
+
+            client = mqtt.connect(brokerUrl, opts);
+
+            client.on('connect', () => {
+                setConnected(true);
+                sysLog('Connected ✓');
+            });
+
+            client.on('error', (err) => {
+                sysLog(`Error: ${err.message}`, 'err');
+                setBadge('disconnected');
+            });
+
+            client.on('close', () => {
+                setConnected(false);
+                sysLog('Connection closed.');
+            });
+
+            client.on('offline', () => {
+                setBadge('disconnected');
+                sysLog('Client offline.', 'err');
+            });
+
+            client.on('message', (topic, message) => {
+                try {
+                    recCount++;
+                    updateStats();
+
+                    // FW Download responses can be binary chunks; decode a safe preview.
+                    if (topic.includes('/firmwaredownload/resp/') || topic.includes('.firmwaredownload.resp.')) {
+                        const bytes = message instanceof Uint8Array ? message.byteLength : String(message).length;
+                        const preview = message instanceof Uint8Array
+                            ? binaryToSafeTextPreview(message)
+                            : decodeMessageText(message).slice(0, 300);
+                        addLog('sub', topic, `<firmware chunk ${bytes} bytes> ${preview}`);
+                        return;
+                    }
+
+                    if (topic.includes('/auth/resp') || topic.includes('.auth.resp')) {
+                        const text = decodeMessageText(message);
+                        let parsed = text;
+                        let tokenFromResponse = '';
+
+                        try {
+                            parsed = JSON.parse(text);
+                            if (parsed && typeof parsed === 'object') {
+                                tokenFromResponse =
+                                    parsed.ThingToken ||
+                                    parsed.thingToken ||
+                                    (parsed.Data && parsed.Data.ThingToken) ||
+                                    '';
+                            }
+                        } catch {
+                            parsed = text;
+                        }
+
+                        if (!tokenFromResponse) {
+                            const plainText = text.trim();
+                            const looksLikeRawToken = plainText.length > 20 && !plainText.startsWith('{') && !plainText.startsWith('[');
+                            if (looksLikeRawToken) tokenFromResponse = plainText;
+                        }
+
+                        replaceThingToken(tokenFromResponse);
+
+                        addLog('sub', topic, parsed);
+                        return;
+                    }
+
+                    const text = decodeMessageText(message);
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(text);
+                    } catch {
+                        parsed = text;
+                    }
+                    addLog('sub', topic, parsed);
+                } catch (err) {
+                    sysLog(`Message handler error: ${err && err.message ? err.message : String(err)}`, 'err');
+                }
+            });
+        }
+
+        function disconnect() {
+            if (client) { client.end(true); client = null; activeSubs.clear(); renderSubList(); }
+            stopHbInterval();
+            stopReportInterval();
+            setConnected(false);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Tab switch
+        // ──────────────────────────────────────────────────────────────────────────────
+        function switchTab(name, triggerEl = null) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${name}`).classList.add('active');
+            const activeBtn = triggerEl || document.querySelector(`#tabs-wrap .tab-btn[onclick="switchTab('${name}')"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+            if (name === 'authen') {
+                subAuthenResp();
+                const { thingToken } = getCredentials();
+                if (thingToken.length < 35) {
+                    setTimeout(pubAuthen, 500);
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – REPORT
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubReport() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('r-token', thingToken);
+            const ext = document.getElementById('r-ext').value.trim();
+            if (!token) { alert('ThingToken is required'); return; }
+            const payload = getJson('r-payload'); if (!payload) return;
+            
+            // inject live ts
+            if (typeof payload === 'object' && payload !== null) {
+                payload.Timestamp = Math.floor(Date.now() / 1000);
+                document.getElementById('r-payload').value = JSON.stringify(payload, null, 2);
+            }
+
+            const topic = ext
+                ? `api/v2/thing/${token}/report/persist/${ext}`
+                : `api/v2/thing/${token}/report/persist`;
+            publish(topic, payload);
+        }
+        function subReport() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('r-token', thingToken) || '+';
+            subscribe(`api/v2/thing/${token}/report/resp`);
+            subscribe(`api/v2/thing/${token}/report/resp/pta/+`);
+        }
+
+        function startReportInterval() {
+            if (reportTimer) return;
+            document.getElementById('btnReportStart').disabled = true;
+            document.getElementById('btnReportStop').disabled = false;
+            document.getElementById('report-interval-status').textContent = 'Auto: On (every 5s)';
+            pubReport();
+            reportTimer = setInterval(pubReport, 5000);
+        }
+        function stopReportInterval() {
+            clearInterval(reportTimer); reportTimer = null;
+            document.getElementById('btnReportStart').disabled = false;
+            document.getElementById('btnReportStop').disabled = true;
+            document.getElementById('report-interval-status').textContent = 'Auto: Off';
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – DELTA
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubDelta() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('d-token', thingToken);
+            const ext = document.getElementById('d-ext').value.trim();
+            if (!token) { alert('ThingToken is required'); return; }
+            const topic = ext
+                ? `api/v2/thing/${token}/delta/req/${ext}`
+                : `api/v2/thing/${token}/delta/req`;
+            publish(topic, "");
+        }
+        function subDeltaResp() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('d-token', thingToken) || '+';
+            subscribe(`api/v2/thing/${token}/delta/resp`);
+            subscribe(`api/v2/thing/${token}/delta/resp/pta/+`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – AUTHEN
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubAuthen() {
+            const { thingId, thingSecret } = getCredentials();
+            const token = getSharedValue('a-token', thingId);
+            const secret = getSharedValue('a-secret', thingSecret);
+            if (!token || !secret) { alert('ThingIdentifier & ThingSecret are required'); return; }
+            // const payload = getJson('a-payload'); if (!payload) return;
+            publish(`api/v2/thing/${token}/${secret}/auth/req`, "");
+        }
+        function subAuthenResp() {
+            const { thingId, thingSecret } = getCredentials();
+            const token = getSharedValue('a-token', thingId) || '+';
+            const secret = getSharedValue('a-secret', thingSecret) || '+';
+            subscribe(`api/v2/thing/${token}/${secret}/auth/resp`);
+            subscribe(`api/v2/thing/${token}/${secret}/auth/resp/pta`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – CONFIG
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubConfig() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('c-token', thingToken);
+            if (!token) { alert('ThingToken is required'); return; }
+            // const payload = getJson('c-payload'); if (!payload) return;
+            const ext = document.getElementById('c-ext').value.trim();
+            const topic = ext
+                ? `api/v2/thing/${token}/config/req/${ext}`
+                : `api/v2/thing/${token}/config/req`;
+            publish(topic, "");
+        }
+        function subConfigResp() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('c-token', thingToken) || '+';
+            subscribe(`api/v2/thing/${token}/config/resp`);
+            subscribe(`api/v2/thing/${token}/config/resp/pta/+`);
+        }
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – CLINET CONFIG
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubClientConfig() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('c-token', thingToken);
+            if (!token) { alert('ThingToken is required'); return; }
+            const payload = getJson('cc-payload') || ""
+            const ext = document.getElementById('cc-ext').value.trim();
+            const topic = ext
+                ? `api/v2/thing/${token}/config/persist/${ext}`
+                : `api/v2/thing/${token}/config/persist`;
+            publish(topic, JSON.stringify(payload));
+
+        }
+        function subClientConfigResp() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('c-token', thingToken) || '+';
+            subscribe(`api/v2/thing/${token}/config/persist/resp`);
+            subscribe(`api/v2/thing/${token}/config/persist/resp/pta/+`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – HEARTBEAT
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubHeartbeat() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('hb-token', thingToken);
+            if (!token) { alert('ThingToken is required'); return; }
+            // const payload = getJson('hb-payload'); if (!payload) return;
+            // inject live ts
+            // payload.ts = Math.floor(Date.now() / 1000);
+            // document.getElementById('hb-payload').value = JSON.stringify(payload, null, 2);
+            publish(`api/v2/thing/${token}/heartbeat`, "");
+        }
+        function subHeartbeat() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('hb-token', thingToken) || '+';
+            subscribe(`api/v2/thing/${token}/heartbeat/resp`);
+            subscribe(`api/v2/thing/${token}/heartbeat/resp/pta`);
+        }
+        function startHbInterval() {
+            if (hbTimer) return;
+            document.getElementById('btnHbStart').disabled = true;
+            document.getElementById('btnHbStop').disabled = false;
+            document.getElementById('hb-interval-status').textContent = 'Auto: On (every 5s)';
+            pubHeartbeat();
+            hbTimer = setInterval(pubHeartbeat, 5000);
+        }
+        function stopHbInterval() {
+            clearInterval(hbTimer); hbTimer = null;
+            document.getElementById('btnHbStart').disabled = false;
+            document.getElementById('btnHbStop').disabled = true;
+            document.getElementById('hb-interval-status').textContent = 'Auto: Off';
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – SYNCTIME
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubSynctime() {
+            publish('api/v2/server/dateTime/req', "");
+        }
+        function subSynctimeResp() {
+            subscribe('api/v2/server/dateTime/resp');
+            subscribe('api/v2/server/dateTime/resp/pta');
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – FIRMWARE INFO
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubFirmwareInfo() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('fi-token', thingToken);
+            if (!token) { alert('ThingToken is required'); return; }
+            // const payload = getJson('fi-payload'); if (!payload) return;
+            publish(`api/v2/thing/${token}/firmwareinfo/req`, "");
+        }
+        function subFirmwareInfoResp() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('fi-token', thingToken) || '+';
+            subscribe(`api/v2/thing/${token}/firmwareinfo/resp`);
+            subscribe(`api/v2/thing/${token}/firmwareinfo/resp/pta`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – FIRMWARE OTA
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubFirmwareOTA() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('fota-token', thingToken);
+            if (!token) { alert('ThingToken is required'); return; }
+            // const payload = getJson('fota-payload'); if (!payload) return;
+            publish(`api/v2/thing/${token}/firmwarestartota/req`, "");
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – FIRMWARE DOWNLOAD
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubFirmwareDownload() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('fdl-token', thingToken);
+            const idx = document.getElementById('fdl-index').value.trim();
+            const fwsize = document.getElementById('fdl-fwsize').value.trim();
+            if (!token) { alert('ThingToken is required'); return; }
+            publish(`api/v2/thing/${token}/firmwaredownload/req/${idx}/?filesize=${fwsize}`, "");
+        }
+
+        function subFirmwareDownloadResp() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('fdl-token', thingToken) || '+';
+            subscribe(`api/v2/thing/${token}/firmwaredownload/resp/+`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – FOTA PROGRESS
+        // ──────────────────────────────────────────────────────────────────────────────
+        function setFotaPayloadTemplate(kind) {
+            const templates = {
+                success: {
+                    description: "",
+                    Version: ""
+                },
+                error: {
+                    errordescription: ""
+                }
+            };
+
+            const payload = templates[kind];
+            if (!payload) return;
+            document.getElementById('fota-payload').value = JSON.stringify(payload, null, 2);
+            sysLog(`Loaded FOTA ${kind} payload template.`);
+        }
+
+        function pubFotaProgress() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('fp-token', thingToken);
+            const state = document.getElementById('fp-state').value;
+            if (!token) { alert('ThingToken is required'); return; }
+            const payload = getJson('fota-payload') || ""
+            publish(`api/v2/thing/${token}/fotaupdateprogress/req/?FOTAState=${state}`, payload);
+        }
+        function subFotaProgressResp() {
+            const { thingToken } = getCredentials();
+            const token = getSharedValue('fp-token', thingToken) || '+';
+            // subscribe(`api/v2/thing/${token}/fotaupdateprogress/resp/+`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // API – REGISTER
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubRegister() {
+            const id = document.getElementById('reg-id').value.trim();
+            const secret = document.getElementById('reg-secret').value.trim();
+            const name = document.getElementById('reg-name').value.trim();
+            const code = document.getElementById('reg-code').value.trim();
+            const imei = document.getElementById('reg-imei').value.trim();
+            if (!id || !name) { alert('ThingIdentifier and ThingName are required'); return; }
+            const custom = getJson('reg-custom'); if (custom === null) return;
+            const payload = {
+                ThingIdentifier: id,
+                ThingSecret: secret || undefined,
+                ThingName: name,
+                ...(imei ? { IMEI: imei } : {}),
+                ...(code ? { SecretCode: code } : {}),
+                ...(Object.keys(custom).length ? { CustomDetails: custom } : {}),
+            };
+            publish('api/v2/thing/register/req', payload);
+        }
+        function subRegisterResp() {
+            const id = document.getElementById('reg-id').value.trim() || '+';
+            const secret = document.getElementById('reg-secret').value.trim() || '+';
+            subscribe(`api/v2/thing/${id}/${secret}/register/resp`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Custom
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubCustom() {
+            const topic = document.getElementById('cp-topic').value.trim();
+            if (!topic) { alert('Topic is required'); return; }
+            const qos = parseInt(document.getElementById('cp-qos').value, 10);
+            const raw = document.getElementById('cp-payload').value;
+            let payload;
+            try { payload = JSON.parse(raw); } catch { payload = raw; }
+            publish(topic, payload, qos);
+        }
+        function subCustom() {
+            const topic = document.getElementById('cp-topic').value.trim();
+            if (!topic) { alert('Topic is required'); return; }
+            const qos = parseInt(document.getElementById('cp-qos').value, 10);
+            subscribe(topic, qos);
+        }
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Centric
+        // ──────────────────────────────────────────────────────────────────────────────
+        function pubCentric() {
+            const { thingId, thingSecret } = getCredentials();
+            const token = getSharedValue('a-token', thingId);
+            const secret = getSharedValue('a-secret', thingSecret);
+            if (!token || !secret) { alert('ThingIdentifier & ThingSecret are required'); return; }
+            // const payload = getJson('a-payload'); if (!payload) return;
+            publish(`api/v2/things/${token}/${secret}/server/destination/request`, '{"hello":"world"}');
+        }
+        function subCentric() {
+            const { thingId, thingSecret } = getCredentials();
+            const token = getSharedValue('a-token', thingId) || '+';
+            const secret = getSharedValue('a-secret', thingSecret) || '+';
+            subscribe(`api/v2/things/${token}/${secret}/server/destination/response`);
+        }
+        function subAllAsgard() {
+            // Subscribe to all AsgardMQTTv2 response / broadcast topics
+            [
+                'api/v2/thing/+/report/persist/#',
+                'api/v2/thing/+/+/auth/req',
+                'api/v2/thing/+/delta/req',
+                'api/v2/thing/+/config/req/+',
+                'api/v2/thing/+/heartbeat',
+                'api/v2/server/dateTime/req',
+                'api/v2/thing/+/firmwareinfo/req',
+                'api/v2/thing/+/firmwarestartota/req',
+                'api/v2/thing/+/firmwaredownload/req/+',
+                'api/v2/thing/+/fotaupdateprogress/req/+',
+                'api/v2/thing/register/req',
+            ].forEach(t => subscribe(t));
+        }
+
+        function subscribeTopic() {
+            const t = document.getElementById('subTopic').value.trim();
+            if (!t) { alert('Topic is required'); return; }
+            subscribe(t);
+            document.getElementById('subTopic').value = '';
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Subscribe Checklist Scenarios
+        // ──────────────────────────────────────────────────────────────────────────────
+        function subScenario(scenario) {
+            const scenarios = {
+                'auth-json': 'api/v2/thing/{ThingId}/{ThingSecret}/auth/resp',
+                'auth-pta': 'api/v2/thing/{ThingId}/{ThingSecret}/auth/resp/pta',
+                'report-json': 'api/v2/thing/{ThingToken}/report/resp/+',
+                'report-pta': 'api/v2/thing/{ThingToken}/report/resp/pta/+',
+                'hb-json': 'api/v2/thing/{ThingToken}/heartbeat/resp',
+                'hb-pta': 'api/v2/thing/{ThingToken}/heartbeat/resp/pta',
+                'cfg-json': 'api/v2/thing/{ThingToken}/config/resp',
+                'cfg-pta': 'api/v2/thing/{ThingToken}/config/resp/pta/+',
+                'delta-json': 'api/v2/thing/{ThingToken}/delta/resp',
+                'delta-pta': 'api/v2/thing/{ThingToken}/delta/resp/pta/+',
+            };
+            const topic = scenarios[scenario] || '';
+            document.getElementById('cp-topic').value = topic;
+            switchTab('custom');
+            sysLog(`📋 Checklist → pre-filled topic: ${topic}. Replace {ThingToken} or {ThingId}/{ThingSecret} with actual values.`);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Quick Subscribe from Credentials
+        // ──────────────────────────────────────────────────────────────────────────────
+        function getCredentials() {
+            return {
+                thingId: document.getElementById('thing-id').value.trim(),
+                thingSecret: document.getElementById('thing-secret').value.trim(),
+                thingToken: document.getElementById('thing-token').value.trim(),
+            };
+        }
+
+        function setToken(token) {
+            let thingToken = document.getElementById('thing-token')
+            thingToken.value = token
+        }
+
+        function getSharedValue(fieldId, sharedValue) {
+            const field = document.getElementById(fieldId);
+            const value = field ? field.value.trim() : '';
+            return value || sharedValue || '';
+        }
+
+        function publishPreset() {
+            const presetVal = document.getElementById('preset-api').value;
+            if (!presetVal) {
+                sysLog('Please select an API preset to publish.', 'err');
+                return;
+            }
+
+            const { thingId, thingSecret, thingToken } = getCredentials();
+
+            // Map preset to publish operation
+            const pubOps = {
+                'auth-json': () => {
+                    if (!thingId || !thingSecret) { sysLog('Auth requires ThingId & ThingSecret', 'err'); return; }
+                    document.getElementById('a-token').value = thingId;
+                    document.getElementById('a-secret').value = thingSecret;
+                    document.getElementById('a-payload').value = JSON.stringify({
+                        "ClientId": "mqttjs_client",
+                        "Protocol": "MQTT"
+                    }, null, 2);
+                    switchTab('authen');
+                    sysLog('📋 Auth preset loaded. Click "Publish" to send.');
+                },
+                'report-json': () => {
+                    if (!thingToken) { sysLog('Report requires ThingToken', 'err'); return; }
+                    document.getElementById('r-token').value = thingToken;
+                    document.getElementById('r-ext').value = '';
+                    document.getElementById('r-payload').value = JSON.stringify({
+                        "Temperature": 36.5,
+                        "Humidity": 60,
+                        "Timestamp": Math.floor(Date.now() / 1000)
+                    }, null, 2);
+                    switchTab('report');
+                    sysLog('📋 Report preset loaded. Click "Publish" to send.');
+                },
+                'hb-json': () => {
+                    if (!thingToken) { sysLog('Heartbeat requires ThingToken', 'err'); return; }
+                    document.getElementById('hb-token').value = thingToken;
+                    document.getElementById('hb-payload').value = JSON.stringify({
+                        "ts": Math.floor(Date.now() / 1000),
+                        "status": "online"
+                    }, null, 2);
+                    switchTab('heartbeat');
+                    sysLog('📋 Heartbeat preset loaded. Click "Publish Once" to send.');
+                },
+                'cfg-json': () => {
+                    if (!thingToken) { sysLog('Config requires ThingToken', 'err'); return; }
+                    document.getElementById('c-token').value = thingToken;
+                    document.getElementById('c-payload').value = JSON.stringify({
+                        "ConfigVersion": "1.0"
+                    }, null, 2);
+                    switchTab('config');
+                    sysLog('📋 Config preset loaded. Click "Publish" to send.');
+                },
+                'delta-json': () => {
+                    if (!thingToken) { sysLog('Delta requires ThingToken', 'err'); return; }
+                    document.getElementById('d-token').value = thingToken;
+                    document.getElementById('d-payload').value = JSON.stringify({
+                        "state": {
+                            "desired": {
+                                "LED": true,
+                                "Mode": "auto"
+                            }
+                        }
+                    }, null, 2);
+                    switchTab('delta');
+                    sysLog('📋 Delta preset loaded. Click "Publish" to send.');
+                }
+            };
+
+            const fn = pubOps[presetVal];
+            if (fn) {
+                fn();
+                document.getElementById('preset-api').value = ''; // reset dropdown
+            }
+        }
+
+        function applyPresetAndSub() {
+            const presetVal = document.getElementById('preset-api').value;
+            if (!presetVal) {
+                sysLog('Please select an API preset to subscribe.', 'err');
+                return;
+            }
+
+            const { thingId, thingSecret, thingToken } = getCredentials();
+            const scenarios = {
+                'auth-json': `api/v2/thing/${thingId}/${thingSecret}/auth/resp`,
+                'report-json': `api/v2/thing/${thingToken}/report/resp/+`,
+                'hb-json': `api/v2/thing/${thingToken}/heartbeat/resp`,
+                'cfg-json': `api/v2/thing/${thingToken}/config/resp`,
+                'delta-json': `api/v2/thing/${thingToken}/delta/resp`,
+            };
+
+            const topic = scenarios[presetVal];
+            if (topic) {
+                if (!topic.includes('undefined')) {
+                    subscribe(topic, 1);
+                    sysLog(`✓ Subscribed to response: ${topic}`);
+                    document.getElementById('preset-api').value = ''; // reset
+                } else {
+                    sysLog('Missing required credential. Check Device Credentials above.', 'err');
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Log controls
+        // ──────────────────────────────────────────────────────────────────────────────
+        function clearLog() { document.getElementById('log').innerHTML = ''; }
+        function toggleLogPause() {
+            logPaused = !logPaused;
+            document.getElementById('btnPause').textContent = logPaused ? '▶ Resume' : '⏸ Pause';
+        }
+        function exportLog() {
+            const lines = [...document.querySelectorAll('.log-entry')].map(e => e.textContent);
+            const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `mqtt-log-${Date.now()}.txt`;
+            a.click();
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Log resize (top-left drag handle)
+        // ──────────────────────────────────────────────────────────────────────────────
+        let isResizingLog = false;
+        let logResizeStartY = 0;
+        let logResizeStartHeight = 0;
+
+        function startLogResize(event) {
+            const wrap = document.getElementById('log-wrap');
+            if (!wrap) return;
+            isResizingLog = true;
+            logResizeStartY = event.clientY;
+            logResizeStartHeight = wrap.offsetHeight;
+            document.body.style.userSelect = 'none';
+            event.preventDefault();
+        }
+
+        function onLogResizeMove(event) {
+            if (!isResizingLog) return;
+            const wrap = document.getElementById('log-wrap');
+            if (!wrap) return;
+
+            // Drag up = increase height, drag down = decrease height.
+            const delta = logResizeStartY - event.clientY;
+            const minHeight = 140;
+            const maxHeight = Math.floor(window.innerHeight * 0.7);
+            const nextHeight = Math.max(minHeight, Math.min(maxHeight, logResizeStartHeight + delta));
+            wrap.style.height = `${nextHeight}px`;
+        }
+
+        function stopLogResize() {
+            if (!isResizingLog) return;
+            isResizingLog = false;
+            document.body.style.userSelect = '';
+        }
+
+        function initLogResizer() {
+            const handle = document.getElementById('log-resizer-top');
+            if (!handle) return;
+            handle.addEventListener('mousedown', startLogResize);
+            window.addEventListener('mousemove', onLogResizeMove);
+            window.addEventListener('mouseup', stopLogResize);
+        }
+
+        document.addEventListener('DOMContentLoaded', initLogResizer);
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // LocalStorage – persist Device Credentials & MQTT Connection fields
+        // ──────────────────────────────────────────────────────────────────────────────
+        const LS_KEY = 'asgard_mqtt_settings';
+
+        const PERSISTED_FIELDS = [
+            // Device Credentials
+            { id: 'thing-id', event: 'input' },
+            { id: 'thing-secret', event: 'input' },
+            { id: 'thing-token', event: 'input' },
+            // MQTT Connection
+            { id: 'protocol', event: 'change' },
+            { id: 'host', event: 'input' },
+            { id: 'port', event: 'input' },
+            { id: 'path', event: 'input' },
+            { id: 'username', event: 'input' },
+            { id: 'password', event: 'input' },
+            { id: 'clientId', event: 'input' },
+        ];
+
+        function saveSettingsToLocalStorage() {
+            const data = {};
+            for (const { id } of PERSISTED_FIELDS) {
+                const el = document.getElementById(id);
+                if (el) data[id] = el.value;
+            }
+            try {
+                localStorage.setItem(LS_KEY, JSON.stringify(data));
+            } catch {
+                // localStorage may be unavailable (e.g. private browsing quota exceeded)
+            }
+        }
+
+        function loadSettingsFromLocalStorage() {
+            let data;
+            try {
+                const raw = localStorage.getItem(LS_KEY);
+                if (!raw) return;
+                data = JSON.parse(raw);
+            } catch {
+                return;
+            }
+            for (const { id } of PERSISTED_FIELDS) {
+                if (Object.prototype.hasOwnProperty.call(data, id)) {
+                    const el = document.getElementById(id);
+                    if (el) el.value = data[id];
+                }
+            }
+        }
+
+        function initLocalStoragePersistence() {
+            loadSettingsFromLocalStorage();
+            for (const { id, event } of PERSISTED_FIELDS) {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener(event, saveSettingsToLocalStorage);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initLocalStoragePersistence);
+    </script>
+</body>
+
+</html>
